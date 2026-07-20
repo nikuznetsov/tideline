@@ -91,11 +91,13 @@ class InviteLinkOut(BaseModel):
     revoked_at: datetime | None
     created_at: datetime
     last_used_at: datetime | None
+    # полная ссылка для повторного копирования; None у ссылок, созданных
+    # до того, как токен стал храниться открыто
+    url: str | None = None
 
 
 class InviteLinkCreated(InviteLinkOut):
     token: str = ""
-    url: str = ""
 
 
 # ---------- members ----------

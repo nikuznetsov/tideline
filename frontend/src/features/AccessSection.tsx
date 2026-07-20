@@ -202,9 +202,7 @@ export function AccessSection() {
             </div>
             {createdUrl && (
               <div className="mt-3 rounded border border-line bg-page p-3">
-                <div className="mb-1 text-xs font-medium">
-                  Новая ссылка — показывается один раз
-                </div>
+                <div className="mb-1 text-xs font-medium">Новая ссылка</div>
                 <div className="break-all font-nums text-xs">{createdUrl}</div>
                 <CopyButton
                   text={createdUrl}
@@ -231,12 +229,20 @@ export function AccessSection() {
                         ` · использовалась ${new Date(l.last_used_at).toLocaleDateString("ru")}`}
                     </span>
                   </div>
-                  <button
-                    onClick={() => revokeInvite.mutate(l.id)}
-                    className="text-xs text-mts underline"
-                  >
-                    Отозвать
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {l.url && (
+                      <CopyButton
+                        text={l.url}
+                        className="text-xs underline hover:text-ink"
+                      />
+                    )}
+                    <button
+                      onClick={() => revokeInvite.mutate(l.id)}
+                      className="text-xs text-mts underline"
+                    >
+                      Отозвать
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

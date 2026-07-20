@@ -232,7 +232,7 @@ async def list_invite_links(
     db: AsyncSession = Depends(get_db),
     ws: Workspace = Depends(get_workspace_owner),
 ):
-    return (
+    links = (
         (
             await db.execute(
                 select(InviteLink)
@@ -243,6 +243,14 @@ async def list_invite_links(
         .scalars()
         .all()
     )
+    base_url = get_settings().app_base_url
+    out = []
+    for link in links:
+        item = InviteLinkOut.model_validate(link)
+        if link.token and link.revoked_at is None:
+            item.url = f"{base_url}/join/{link.token}"
+        out.append(item)
+    return out
 
 
 @router.post("/w/{workspace_slug}/invite-links", response_model=InviteLinkCreated)
@@ -256,6 +264,7 @@ async def create_invite_link(
         workspace_id=ws.id,
         token_hash=hash_share_token(token),
         token_prefix=token[:8],
+        token=token,
         created_by=user.id,
     )
     db.add(link)

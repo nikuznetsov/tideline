@@ -356,6 +356,9 @@ class InviteLink(Base):
     )
     token_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     token_prefix: Mapped[str] = mapped_column(Text, nullable=False)
+    # токен открытым текстом: приглашение многоразовое и отзываемое, владелец
+    # должен уметь скопировать ссылку повторно; у старых ссылок NULL
+    token: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("app_user.id"), nullable=True
     )
