@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 
 import boto3
+from botocore.config import Config
 
 
 def env(name: str) -> str:
@@ -37,6 +38,8 @@ def main() -> None:
         endpoint_url=env("BACKUP_S3_ENDPOINT"),
         aws_access_key_id=env("BACKUP_S3_ACCESS_KEY"),
         aws_secret_access_key=env("BACKUP_S3_SECRET_KEY"),
+        region_name=os.environ.get("BACKUP_S3_REGION", "auto"),
+        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
     )
 
     resp = client.list_objects_v2(Bucket=bucket, Prefix=prefix)

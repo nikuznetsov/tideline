@@ -17,6 +17,7 @@ import tempfile
 from pathlib import Path
 
 import boto3
+from botocore.config import Config
 
 
 def env(name: str, default: str | None = None) -> str:
@@ -28,11 +29,15 @@ def env(name: str, default: str | None = None) -> str:
 
 
 def s3_client():
+    # region по умолчанию auto (как у R2/Railway Bucket) — иначе boto3 падает
+    # без региона; path-style адресация совместима с любым S3-провайдером
     return boto3.client(
         "s3",
         endpoint_url=env("BACKUP_S3_ENDPOINT"),
         aws_access_key_id=env("BACKUP_S3_ACCESS_KEY"),
         aws_secret_access_key=env("BACKUP_S3_SECRET_KEY"),
+        region_name=os.environ.get("BACKUP_S3_REGION", "auto"),
+        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
     )
 
 
