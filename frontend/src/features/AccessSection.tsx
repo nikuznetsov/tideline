@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, ApiError, wapi } from "../api/client";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyButton } from "../components/CopyButton";
 import type { Member } from "../api/types";
 import { useWorkspace } from "../workspace";
@@ -33,6 +34,7 @@ export function AccessSection() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const [removingAccess, setRemovingAccess] = useState<Participant | null>(null);
   const base = `/w/${current.slug}`;
 
   const members = useQuery<Member[]>({
@@ -156,10 +158,7 @@ export function AccessSection() {
                       </button>
                     )}
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Убрать доступ у «${p.name}»?`))
-                          removeParticipant.mutate(p.user_id);
-                      }}
+                      onClick={() => setRemovingAccess(p)}
                       className="text-xs text-mts underline"
                     >
                       Убрать
@@ -248,6 +247,21 @@ export function AccessSection() {
             </div>
           </div>
         </>
+      )}
+
+      {removingAccess && (
+        <ConfirmDialog
+          title="Убрать доступ"
+          message={
+            <>
+              Убрать доступ у <b>«{removingAccess.name}»</b>? Человек больше не
+              сможет открыть пространство, пока не вступит по ссылке заново.
+            </>
+          }
+          confirmLabel="Убрать"
+          onConfirm={() => removeParticipant.mutate(removingAccess.user_id)}
+          onClose={() => setRemovingAccess(null)}
+        />
       )}
     </section>
   );

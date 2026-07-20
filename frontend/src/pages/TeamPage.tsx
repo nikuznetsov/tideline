@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { api, ApiError, getWorkspaceSlug, wapi } from "../api/client";
 import type { Member } from "../api/types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { AccessSection } from "../features/AccessSection";
 import { AuditHistory } from "../features/AuditHistory";
 import { useWorkspace } from "../workspace";
@@ -19,6 +20,7 @@ export function TeamPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState("");
   const [roleTitle, setRoleTitle] = useState("");
+  const [removing, setRemoving] = useState<Member | null>(null);
 
   const members = useQuery<Member[]>({
     queryKey: ["members", getWorkspaceSlug()],
@@ -173,15 +175,7 @@ export function TeamPage() {
                   member={m}
                   canEdit={canEdit}
                   onPatch={(body) => patch.mutate({ id: m.id, body })}
-                  onDelete={() => {
-                    if (
-                      window.confirm(
-                        `Убрать «${m.name}» из команды? Доступ в пространство останется, история аллокаций сохранится.`,
-                      )
-                    ) {
-                      remove.mutate(m.id);
-                    }
-                  }}
+                  onDelete={() => setRemoving(m)}
                   onUp={() => move(i, -1)}
                   onDown={() => move(i, 1)}
                   isFirst={i === 0}
@@ -194,6 +188,21 @@ export function TeamPage() {
       )}
 
       {isOwner && <AccessSection />}
+
+      {removing && (
+        <ConfirmDialog
+          title="Убрать из команды"
+          message={
+            <>
+              Убрать <b>«{removing.name}»</b> из команды? Доступ в пространство
+              останется, история аллокаций сохранится.
+            </>
+          }
+          confirmLabel="Убрать"
+          onConfirm={() => remove.mutate(removing.id)}
+          onClose={() => setRemoving(null)}
+        />
+      )}
     </div>
   );
 }
