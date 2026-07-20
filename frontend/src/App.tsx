@@ -6,7 +6,6 @@ import { Layout } from "./components/Layout";
 import { AccuracyPage } from "./pages/AccuracyPage";
 import { JoinPage } from "./pages/JoinPage";
 import { LandingPage } from "./pages/LandingPage";
-import { ParticipantsPage } from "./pages/ParticipantsPage";
 import { ProjectCardPage } from "./pages/ProjectCardPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -71,7 +70,7 @@ export default function App() {
                 <Route path="/projects/:id" element={<ProjectCardPage />} />
                 <Route path="/team" element={<TeamPage />} />
                 <Route path="/accuracy" element={<AccuracyPage />} />
-                <Route path="/participants" element={<ParticipantsPage />} />
+                <Route path="/participants" element={<Navigate to="../team" replace />} />
                 <Route path="*" element={<Navigate to="." replace />} />
               </Routes>
             </Layout>

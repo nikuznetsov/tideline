@@ -10,16 +10,13 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
   const [helpOpen, setHelpOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { current, workspaces, isOwner, wsPath } = useWorkspace();
+  const { current, workspaces, wsPath } = useWorkspace();
 
   const nav = [
     { to: wsPath("/"), label: "Таймлайн", end: true },
     { to: wsPath("/projects"), label: "Проекты", end: false },
     { to: wsPath("/team"), label: "Команда", end: false },
     { to: wsPath("/accuracy"), label: "Точность", end: false },
-    ...(isOwner
-      ? [{ to: wsPath("/participants"), label: "Участники", end: false }]
-      : []),
   ];
 
   useEffect(() => {

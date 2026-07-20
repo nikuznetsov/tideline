@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, wapi } from "../api/client";
+import type { Member } from "../api/types";
 import { useWorkspace } from "../workspace";
 
 interface Participant {
@@ -26,12 +27,27 @@ const ROLE_LABEL: Record<string, string> = {
   viewer: "Просмотр",
 };
 
-export function ParticipantsPage() {
+export function AccessSection() {
   const { current, isOwner } = useWorkspace();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
   const base = `/w/${current.slug}`;
+
+  const members = useQuery<Member[]>({
+    queryKey: ["members"],
+    queryFn: () => wapi.get<Member[]>("/members"),
+  });
+  const addToTimeline = useMutation({
+    mutationFn: (name: string) => wapi.post("/members", { name, role_title: null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
+    },
+    onError: (e) =>
+      setError(e instanceof ApiError ? e.message : "Не удалось сохранить"),
+  });
+  const memberNames = new Set((members.data ?? []).map((m) => m.name.trim().toLowerCase()));
 
   const participants = useQuery<Participant[]>({
     queryKey: ["participants", current.slug],
@@ -86,10 +102,12 @@ export function ParticipantsPage() {
   const activeInvites = (invites.data ?? []).filter((l) => !l.revoked_at);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-4">
-      <h1 className="mb-1 font-wide text-lg font-bold">Участники</h1>
+    <section className="mt-8">
+      <h2 className="mb-1 font-wide text-base font-bold">Доступ в пространство</h2>
       <p className="mb-4 text-xs text-muted">
-        Кто имеет доступ к пространству «{current.name}» и с какой ролью.
+        Аккаунты с доступом к «{current.name}» и их роли. Это не то же самое,
+        что строки таймлайна: участник может смотреть план, не будучи в нём,
+        и наоборот.
       </p>
       {error && <p className="mb-3 text-xs text-mts">{error}</p>}
 
@@ -126,7 +144,16 @@ export function ParticipantsPage() {
                   )}
                 </td>
                 {isOwner && (
-                  <td className="px-2 py-2 text-right">
+                  <td className="whitespace-nowrap px-2 py-2 text-right">
+                    {!memberNames.has(p.name.trim().toLowerCase()) && (
+                      <button
+                        onClick={() => addToTimeline.mutate(p.name)}
+                        className="mr-2 text-xs text-muted underline hover:text-ink"
+                        title="Создать строку с этим именем на таймлайне"
+                      >
+                        на таймлайн
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         if (window.confirm(`Убрать доступ у «${p.name}»?`))
@@ -217,6 +244,6 @@ export function ParticipantsPage() {
           </div>
         </>
       )}
-    </div>
+    </section>
   );
 }

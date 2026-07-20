@@ -3,6 +3,7 @@ import { FormEvent, Fragment, useState } from "react";
 import { ApiError, wapi } from "../api/client";
 import type { Member } from "../api/types";
 import { AuditHistory } from "../features/AuditHistory";
+import { AccessSection } from "../features/AccessSection";
 import { useWorkspace } from "../workspace";
 
 export function TeamPage() {
@@ -75,7 +76,8 @@ export function TeamPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4">
-      <h1 className="mb-1 font-wide text-lg font-bold">Команда</h1>
+      <h1 className="mb-4 font-wide text-lg font-bold">Команда</h1>
+      <h2 className="mb-1 font-wide text-base font-bold">Сотрудники на таймлайне</h2>
       <p className="mb-4 text-xs text-muted">
         Порядок строк здесь — порядок на таймлайне. Неактивные сотрудники
         скрываются из сетки и поиска ресурса, но их история остаётся. Удаление —
@@ -160,6 +162,8 @@ export function TeamPage() {
           </table>
         </div>
       )}
+
+      <AccessSection />
     </div>
   );
 }
