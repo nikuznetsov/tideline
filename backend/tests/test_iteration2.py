@@ -384,3 +384,29 @@ async def test_duplicate_slug_gets_suffix(client, workspace):
     assert r2.json()["slug"] != "team"
     assert r2.json()["slug"].startswith("team-")
     assert r2.json()["name"] == "Первая"  # имена могут совпадать
+
+
+async def test_delete_workspace_owner_only(auth_client, client2, team, monday):
+    # в пространстве есть команда, проекты и аллокации
+    resp = await auth_client.post(
+        "/api/v1/w/xops/allocations",
+        json={
+            "member_id": str(team["members"][0].id),
+            "project_id": str(team["project"].id),
+            "day": monday.isoformat(),
+            "load": "0.5",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    # участник-невладелец удалить не может
+    await _register(client2, "joiner-del@example.com")
+    invite = await auth_client.post("/api/v1/w/xops/invite-links")
+    await client2.post(f"/api/v1/join/{invite.json()['token']}")
+    assert (await client2.delete("/api/v1/w/xops")).status_code == 403
+
+    # владелец удаляет — пространство пропадает у всех и по адресу
+    assert (await auth_client.delete("/api/v1/w/xops")).status_code == 200
+    assert (await auth_client.get("/api/v1/workspaces")).json() == []
+    assert (await client2.get("/api/v1/workspaces")).json() == []
+    assert (await auth_client.get("/api/v1/w/xops/projects")).status_code == 404

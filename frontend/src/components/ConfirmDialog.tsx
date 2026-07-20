@@ -1,19 +1,24 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 /** Стилизованная замена window.confirm для необратимых действий. */
 export function ConfirmDialog({
   title = "Подтвердите действие",
   message,
   confirmLabel = "Подтвердить",
+  verifyText,
   onConfirm,
   onClose,
 }: {
   title?: string;
   message: ReactNode;
   confirmLabel?: string;
+  /** особо опасные действия: кнопка активна, только когда введён этот текст */
+  verifyText?: string;
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const [typed, setTyped] = useState("");
+  const blocked = !!verifyText && typed !== verifyText;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -35,6 +40,19 @@ export function ConfirmDialog({
       >
         <h2 className="font-wide text-sm font-bold">{title}</h2>
         <div className="mt-2 text-sm text-muted">{message}</div>
+        {verifyText && (
+          <label className="mt-3 block">
+            <span className="mb-1 block text-xs text-muted">
+              Введите <b className="font-nums">{verifyText}</b>, чтобы подтвердить
+            </span>
+            <input
+              autoFocus
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              className="w-full rounded border border-line bg-page px-3 py-2 font-nums text-sm"
+            />
+          </label>
+        )}
         <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onClose}
@@ -43,12 +61,13 @@ export function ConfirmDialog({
             Отмена
           </button>
           <button
-            autoFocus
+            autoFocus={!verifyText}
+            disabled={blocked}
             onClick={() => {
               onConfirm();
               onClose();
             }}
-            className="rounded bg-mts px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+            className="rounded bg-mts px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             {confirmLabel}
           </button>

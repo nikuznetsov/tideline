@@ -3,8 +3,9 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ProfileDialog } from "../components/ProfileDialog";
-import { useMyWorkspaces, WorkspaceInfo } from "../workspace";
+import { LAST_WS_KEY, useMyWorkspaces, WorkspaceInfo } from "../workspace";
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "владелец",
@@ -38,6 +39,7 @@ export function WorkspacesPage({ user }: { user: User }) {
   const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [deleting, setDeleting] = useState<WorkspaceInfo | null>(null);
 
   const create = useMutation({
     mutationFn: (body: { name: string; slug: string }) =>
@@ -48,6 +50,17 @@ export function WorkspacesPage({ user }: { user: User }) {
     },
     onError: (e) =>
       setError(e instanceof ApiError ? e.message : "Не удалось создать"),
+  });
+
+  const remove = useMutation({
+    mutationFn: (ws: WorkspaceInfo) => api.delete(`/w/${ws.slug}`),
+    onSuccess: (_data, ws) => {
+      if (localStorage.getItem(LAST_WS_KEY) === ws.slug)
+        localStorage.removeItem(LAST_WS_KEY);
+      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+    },
+    onError: (e) =>
+      setError(e instanceof ApiError ? e.message : "Не удалось удалить"),
   });
 
   function submit(e: FormEvent) {
@@ -95,9 +108,23 @@ export function WorkspacesPage({ user }: { user: User }) {
                   <div className="text-sm font-medium">{w.name}</div>
                   <div className="text-xs text-muted font-nums">/{w.slug}</div>
                 </div>
-                <span className="rounded bg-page px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
-                  {ROLE_LABEL[w.role] ?? w.role}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="rounded bg-page px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
+                    {ROLE_LABEL[w.role] ?? w.role}
+                  </span>
+                  {w.role === "owner" && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDeleting(w);
+                      }}
+                      className="text-xs text-mts underline"
+                      title="Удалить пространство целиком"
+                    >
+                      Удалить
+                    </button>
+                  )}
+                </div>
               </Link>
             ))}
           </div>
@@ -155,6 +182,22 @@ export function WorkspacesPage({ user }: { user: User }) {
         </form>
       </main>
       {profileOpen && <ProfileDialog user={user} onClose={() => setProfileOpen(false)} />}
+      {deleting && (
+        <ConfirmDialog
+          title="Удалить пространство"
+          message={
+            <>
+              Пространство <b>«{deleting.name}»</b> будет удалено безвозвратно —
+              вместе с командой, проектами, таймлайном, историей и всеми
+              ссылками. Доступ потеряют все участники.
+            </>
+          }
+          confirmLabel="Удалить навсегда"
+          verifyText={deleting.slug}
+          onConfirm={() => remove.mutate(deleting)}
+          onClose={() => setDeleting(null)}
+        />
+      )}
     </div>
   );
 }

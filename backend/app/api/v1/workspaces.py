@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -14,7 +14,22 @@ from app.core.deps import (
 )
 from app.core.rate_limit import enforce, share_limiter
 from app.core.security import generate_share_token, hash_share_token
-from app.db.models import AppUser, InviteLink, Membership, Workspace
+from app.db.models import (
+    Absence,
+    Allocation,
+    AppUser,
+    AuditLog,
+    InviteLink,
+    Member,
+    Membership,
+    Milestone,
+    NonWorkingDay,
+    Project,
+    ProjectUpdate,
+    ShareLink,
+    WeekSnapshot,
+    Workspace,
+)
 from app.db.session import get_db
 from app.schemas import (
     InviteLinkCreated,
@@ -113,6 +128,29 @@ async def patch_workspace(
         id=ws.id, slug=ws.slug, name=ws.name, role="owner",
         default_member_role=ws.default_member_role,
     )
+
+
+@router.delete("/w/{workspace_slug}")
+async def delete_workspace(
+    db: AsyncSession = Depends(get_db),
+    ws: Workspace = Depends(get_workspace_owner),
+    _user: AppUser = Depends(get_current_user),
+):
+    """Полное удаление пространства со всеми данными (только владелец).
+
+    Порядок важен: сначала таблицы, ссылающиеся на member/project,
+    затем остальные данные пространства, последним — само пространство.
+    Аудит не пишем — журнал пространства удаляется вместе с ним.
+    """
+    for model in (
+        Allocation, Absence, Milestone, ProjectUpdate,
+        WeekSnapshot, NonWorkingDay, ShareLink, InviteLink,
+        AuditLog, Membership, Member, Project,
+    ):
+        await db.execute(delete(model).where(model.workspace_id == ws.id))
+    await db.delete(ws)
+    await db.commit()
+    return {"ok": True}
 
 
 # ---------- участники ----------
