@@ -93,33 +93,31 @@ share-ссылки, настройки. Это и есть тестовый по
    переменной `PORT`; приложение слушает именно его, а HTTPS/443 Railway
    терминирует сам).
 
-### 4.2. Прописать DNS в Selectel
+### 4.2. Делегировать зону и прописать DNS в Selectel
 
-Тонкость: `CNAME` нельзя вешать на «голый» корень домена (ограничение DNS).
-Поэтому два варианта.
+**Сначала делегирование.** Если зона показывает «НЕ ДЕЛЕГИРОВАНА» — в разделе
+Selectel **«Домены»** (управление доменом, не DNS-хостинг) укажите NS-серверы
+Selectel: `a.ns.selectel.ru`, `b.ns.selectel.ru`, `c.ns.selectel.ru`,
+`d.ns.selectel.ru`. Пока зона не «ДЕЛЕГИРОВАНА», никакие записи не работают.
 
-**Вариант A — проще (рекомендую для быстрого старта).**
-Основной адрес — `www.xops-tideline.ru`, корень редиректит на него.
+**Записи.** Тонкость: `CNAME` нельзя вешать на «голый» корень (конфликтует с
+SOA/NS — Selectel ответит `Conflicts with pre-existing RRset`). Для корня
+Selectel поддерживает тип **ALIAS** — это «CNAME для апекса», он и нужен.
 
-В панели Selectel (DNS-хостинг домена) создайте запись:
+В зоне (DNS-хостинг) создайте две записи:
 
-| Тип | Имя | Значение |
-|---|---|---|
-| CNAME | `www` | `<railway-target>` |
+| Тип | Имя | Значение | TTL |
+|---|---|---|---|
+| **ALIAS** | *(пусто = корень)* | `<railway-target>.` *(с точкой в конце)* | 3600 |
+| **TXT** | `_railway-verify` | `railway-verify=…` *(полная строка из Railway)* | 3600 |
 
-Для корня `xops-tideline.ru` включите в Selectel **веб-перенаправление
-(redirect)** на `https://www.xops-tideline.ru`, если такая опция есть у домена.
-Тогда `APP_BASE_URL` поставьте `https://www.xops-tideline.ru`.
+`<railway-target>` — значение, которое показал Railway в «Configure DNS
+Records» (вида `in7cjahj.up.railway.app`). Корневой домен заработает напрямую,
+`APP_BASE_URL` оставьте `https://xops-tideline.ru`.
 
-**Вариант B — корневой домен работает напрямую (лучший вид ссылки).**
-Заведите домен в бесплатном Cloudflare (он умеет «CNAME-flattening» на корне):
-1. Cloudflare → Add site → `xops-tideline.ru`, план Free.
-2. Cloudflare даст два адреса своих nameservers — пропишите их в Selectel как
-   NS-серверы домена (Selectel → домен → «Управление DNS/делегирование»).
-3. В Cloudflare создайте записи (Proxy status — **DNS only / серое облако**):
-   - `CNAME` `@` → `<railway-target>`
-   - `CNAME` `www` → `<railway-target>`
-4. `APP_BASE_URL` оставьте `https://xops-tideline.ru`.
+> Если нужен ещё и `www` — добавьте отдельно `CNAME` `www` → `<railway-target>`
+> (на поддомене CNAME разрешён) и добавьте `www.xops-tideline.ru` в Custom
+> Domain Railway.
 
 ### 4.3. Дождаться TLS
 
