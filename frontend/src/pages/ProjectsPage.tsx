@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
-import { wapi, workspaceUrl } from "../api/client";
+import { getWorkspaceSlug, wapi, workspaceUrl } from "../api/client";
 import type { ProjectListItem } from "../api/types";
 import { useWorkspace } from "../workspace";
 
@@ -19,7 +19,7 @@ export function ProjectsPage() {
   const queryClient = useQueryClient();
 
   const projects = useQuery<ProjectListItem[]>({
-    queryKey: ["projects", showFinished],
+    queryKey: ["projects", showFinished, getWorkspaceSlug()],
     queryFn: () =>
       wapi.get<ProjectListItem[]>(`/projects?include_finished=${showFinished}`),
   });

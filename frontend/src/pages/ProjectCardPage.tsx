@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { wapi } from "../api/client";
+import { getWorkspaceSlug, wapi } from "../api/client";
 import type { ProjectDetail, ProjectLoad } from "../api/types";
 import { addDays, currentMonday, rangeLabel } from "../lib/dates";
 import { AuditHistory } from "../features/AuditHistory";
@@ -40,11 +40,11 @@ export function ProjectCardPage() {
   const to = addDays(from, 13);
 
   const project = useQuery<ProjectDetail>({
-    queryKey: ["project", id],
+    queryKey: ["project", id, getWorkspaceSlug()],
     queryFn: () => wapi.get<ProjectDetail>(`/projects/${id}`),
   });
   const load = useQuery<ProjectLoad>({
-    queryKey: ["project-load", id, from],
+    queryKey: ["project-load", id, from, getWorkspaceSlug()],
     queryFn: () => wapi.get<ProjectLoad>(`/projects/${id}/load?from=${from}&to=${to}`),
   });
   const patch = useMutation({

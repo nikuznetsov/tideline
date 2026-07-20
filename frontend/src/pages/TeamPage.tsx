@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
-import { api, ApiError, wapi } from "../api/client";
+import { api, ApiError, getWorkspaceSlug, wapi } from "../api/client";
 import type { Member } from "../api/types";
 import { AccessSection } from "../features/AccessSection";
 import { AuditHistory } from "../features/AuditHistory";
@@ -21,7 +21,7 @@ export function TeamPage() {
   const [roleTitle, setRoleTitle] = useState("");
 
   const members = useQuery<Member[]>({
-    queryKey: ["members"],
+    queryKey: ["members", getWorkspaceSlug()],
     queryFn: () => wapi.get<Member[]>("/members"),
   });
   const participants = useQuery<Participant[]>({

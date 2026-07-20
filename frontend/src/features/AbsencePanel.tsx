@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
-import { ApiError, wapi } from "../api/client";
+import { ApiError, getWorkspaceSlug, wapi } from "../api/client";
 import type { AbsenceItem, Member, NonWorkingDayItem } from "../api/types";
 import { fromISO, rangeLabel, todayISO } from "../lib/dates";
 
@@ -22,11 +22,11 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
   const [conflict, setConflict] = useState<string | null>(null);
 
   const members = useQuery<Member[]>({
-    queryKey: ["members"],
+    queryKey: ["members", getWorkspaceSlug()],
     queryFn: () => wapi.get<Member[]>("/members"),
   });
   const absences = useQuery<AbsenceItem[]>({
-    queryKey: ["absences"],
+    queryKey: ["absences", getWorkspaceSlug()],
     queryFn: () => wapi.get<AbsenceItem[]>("/absences"),
   });
 
@@ -262,7 +262,7 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   const days = useQuery<NonWorkingDayItem[]>({
-    queryKey: ["non-working-days"],
+    queryKey: ["non-working-days", getWorkspaceSlug()],
     queryFn: () => wapi.get<NonWorkingDayItem[]>("/non-working-days"),
   });
 

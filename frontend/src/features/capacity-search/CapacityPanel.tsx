@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
-import { wapi } from "../../api/client";
+import { getWorkspaceSlug, wapi } from "../../api/client";
 import type { CapacitySearchResult } from "../../api/types";
 import { addDays, currentMonday, dayLabel } from "../../lib/dates";
 import { fmtNum, plural } from "../../lib/format";
@@ -19,7 +19,7 @@ export function CapacityPanel({ onClose }: { onClose: () => void }) {
   const [submitted, setSubmitted] = useState<string | null>(null);
 
   const query = useQuery<CapacitySearchResult>({
-    queryKey: ["capacity", submitted],
+    queryKey: ["capacity", submitted, getWorkspaceSlug()],
     queryFn: () => wapi.get<CapacitySearchResult>(`/capacity/search?${submitted}`),
     enabled: !!submitted,
   });

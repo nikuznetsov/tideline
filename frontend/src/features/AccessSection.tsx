@@ -35,7 +35,7 @@ export function AccessSection() {
   const base = `/w/${current.slug}`;
 
   const members = useQuery<Member[]>({
-    queryKey: ["members"],
+    queryKey: ["members", current.slug],
     queryFn: () => wapi.get<Member[]>("/members"),
   });
   const addToTeam = useMutation({

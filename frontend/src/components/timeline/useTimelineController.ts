@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { wapi } from "../../api/client";
+import { getWorkspaceSlug, wapi } from "../../api/client";
 import type { TimelineResponse } from "../../api/types";
 
 /** Мутация одной ячейки: load=null — очистить. */
@@ -19,7 +19,7 @@ interface UndoEntry {
 const MAX_UNDO = 50;
 
 export function timelineKey(from: string, to: string) {
-  return ["timeline", from, to] as const;
+  return ["timeline", from, to, getWorkspaceSlug()] as const;
 }
 
 /** Пересчёт производных полей после оптимистичного изменения аллокаций. */

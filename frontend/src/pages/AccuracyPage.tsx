@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { wapi } from "../api/client";
+import { getWorkspaceSlug, wapi } from "../api/client";
 import type { AccuracyReport } from "../api/types";
 import { addDays, rangeLabel } from "../lib/dates";
 import { fmtNum } from "../lib/format";
@@ -8,7 +8,7 @@ import { fmtNum } from "../lib/format";
 export function AccuracyPage() {
   const [weeks, setWeeks] = useState(8);
   const report = useQuery<AccuracyReport>({
-    queryKey: ["accuracy", weeks],
+    queryKey: ["accuracy", weeks, getWorkspaceSlug()],
     queryFn: () => wapi.get<AccuracyReport>(`/weeks/accuracy?weeks=${weeks}`),
   });
 

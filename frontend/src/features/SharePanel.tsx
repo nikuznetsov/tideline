@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { wapi } from "../api/client";
+import { getWorkspaceSlug, wapi } from "../api/client";
 import type { ShareLinkItem } from "../api/types";
 
 export function SharePanel({ onClose }: { onClose: () => void }) {
@@ -8,7 +8,7 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
   const [created, setCreated] = useState<ShareLinkItem | null>(null);
 
   const links = useQuery<ShareLinkItem[]>({
-    queryKey: ["share-links"],
+    queryKey: ["share-links", getWorkspaceSlug()],
     queryFn: () => wapi.get<ShareLinkItem[]>("/share-links"),
   });
 

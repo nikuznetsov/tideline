@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { wapi } from "../api/client";
+import { getWorkspaceSlug, wapi } from "../api/client";
 
 interface AuditEntry {
   id: number;
@@ -55,7 +55,7 @@ export function AuditHistory({
   limit?: number;
 }) {
   const query = useQuery<AuditEntry[]>({
-    queryKey: ["audit", entityType, entityId],
+    queryKey: ["audit", entityType, entityId, getWorkspaceSlug()],
     queryFn: () =>
       wapi.get<AuditEntry[]>(
         `/audit?entity_type=${entityType}&entity_id=${entityId}&limit=${limit}`,

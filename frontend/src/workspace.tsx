@@ -84,5 +84,11 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     isOwner: current.role === "owner",
     wsPath: (path: string) => `/w/${current.slug}${path}`,
   };
-  return <WorkspaceCtx.Provider value={value}>{children}</WorkspaceCtx.Provider>;
+  // key={slug}: при смене пространства дерево перемонтируется — локальный
+  // стейт страниц не переживает переключение
+  return (
+    <WorkspaceCtx.Provider key={current.slug} value={value}>
+      {children}
+    </WorkspaceCtx.Provider>
+  );
 }
