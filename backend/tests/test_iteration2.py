@@ -316,3 +316,57 @@ async def test_metrics_token_protection(client, monkeypatch):
         assert (await client.get("/metrics?token=wrong")).status_code == 401
     finally:
         get_settings.cache_clear()
+
+
+# ---------- профиль ----------
+
+async def test_update_profile(auth_client, workspace):
+    resp = await auth_client.patch(
+        "/api/v1/auth/me", json={"name": "Новое Имя", "email": "newlead@example.com"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == "Новое Имя"
+    assert resp.json()["email"] == "newlead@example.com"
+    me = await auth_client.get("/api/v1/auth/me")
+    assert me.json()["email"] == "newlead@example.com"
+
+
+async def test_update_profile_email_taken(auth_client, client2, workspace):
+    await _register(client2, "taken@example.com")
+    resp = await auth_client.patch(
+        "/api/v1/auth/me", json={"name": "Тимлид", "email": "taken@example.com"}
+    )
+    assert resp.status_code == 422
+
+
+async def test_change_password(client, auth_client, workspace):
+    # неверный текущий пароль
+    resp = await auth_client.post(
+        "/api/v1/auth/me/password",
+        json={"current_password": "wrong", "new_password": "brand-new-pass"},
+    )
+    assert resp.status_code == 400
+
+    # короткий новый пароль
+    resp = await auth_client.post(
+        "/api/v1/auth/me/password",
+        json={"current_password": "admin", "new_password": "short"},
+    )
+    assert resp.status_code == 422
+
+    # успех, и вход по новому паролю работает
+    resp = await auth_client.post(
+        "/api/v1/auth/me/password",
+        json={"current_password": "admin", "new_password": "brand-new-pass"},
+    )
+    assert resp.status_code == 200
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@example.com", "password": "brand-new-pass"},
+    )
+    assert login.status_code == 200
+
+
+async def test_profile_requires_auth(client, workspace):
+    assert (await client.patch("/api/v1/auth/me", json={"name": "x", "email": "x@y.com"})).status_code == 401
+    assert (await client.post("/api/v1/auth/me/password", json={"current_password": "a", "new_password": "abcdefgh"})).status_code == 401

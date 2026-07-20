@@ -15,7 +15,13 @@ from app.core.security import (
 )
 from app.db.models import AppUser
 from app.db.session import get_db
-from app.schemas import LoginRequest, RegisterRequest, UserOut
+from app.schemas import (
+    LoginRequest,
+    PasswordChange,
+    ProfileUpdate,
+    RegisterRequest,
+    UserOut,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -90,3 +96,41 @@ async def logout(response: Response):
 @router.get("/me", response_model=UserOut)
 async def me(user: AppUser = Depends(get_current_user)):
     return user
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    body: ProfileUpdate,
+    user: AppUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    email = body.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(422, "Похоже, это не email")
+    if email != user.email:
+        dup = (
+            await db.execute(
+                select(AppUser.id).where(
+                    AppUser.email == email, AppUser.id != user.id
+                )
+            )
+        ).scalar_one_or_none()
+        if dup:
+            raise HTTPException(422, "Этот email уже занят")
+    user.name = body.name.strip()
+    user.email = email
+    await db.commit()
+    return user
+
+
+@router.post("/me/password")
+async def change_password(
+    body: PasswordChange,
+    user: AppUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(user.password_hash, body.current_password):
+        raise HTTPException(400, "Текущий пароль неверный")
+    user.password_hash = hash_password(body.new_password)
+    await db.commit()
+    return {"ok": True}

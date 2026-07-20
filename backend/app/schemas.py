@@ -43,6 +43,16 @@ class UserOut(BaseModel):
     name: str
 
 
+class ProfileUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=5, max_length=254)
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 # ---------- workspaces ----------
 
 class WorkspaceOut(BaseModel):

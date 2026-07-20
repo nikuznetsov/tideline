@@ -5,9 +5,11 @@ import { api } from "../api/client";
 import type { User } from "../api/types";
 import { useWorkspace } from "../workspace";
 import { HotkeysHelp } from "./HotkeysHelp";
+import { ProfileDialog } from "./ProfileDialog";
 
 export function Layout({ user, children }: { user: User; children: ReactNode }) {
   const [helpOpen, setHelpOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { current, workspaces, wsPath } = useWorkspace();
@@ -95,7 +97,13 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
           >
             ?
           </button>
-          <span className="hidden text-xs text-muted sm:inline">{user.email}</span>
+          <button
+            onClick={() => setProfileOpen(true)}
+            className="max-w-40 truncate text-xs text-muted hover:text-ink"
+            title="Мой профиль"
+          >
+            {user.name}
+          </button>
           <button
             onClick={logout}
             className="text-xs text-muted underline hover:text-ink"
@@ -106,6 +114,7 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
       </header>
       <main className="min-h-0 flex-1 overflow-auto">{children}</main>
       {helpOpen && <HotkeysHelp onClose={() => setHelpOpen(false)} />}
+      {profileOpen && <ProfileDialog user={user} onClose={() => setProfileOpen(false)} />}
     </div>
   );
 }
