@@ -10,9 +10,17 @@ RUN npm run build
 FROM python:3.12-slim AS app
 WORKDIR /srv
 
-# pg_dump/psql для бэкапов и restore, age для шифрования
+# pg_dump/psql для бэкапов и restore (клиент 18 — под Railway Postgres 18;
+# pg_dump обязан быть не старше сервера), age для шифрования
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends postgresql-client age curl \
+    && apt-get install -y --no-install-recommends age curl ca-certificates gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+       -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" \
+       > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
