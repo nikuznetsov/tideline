@@ -332,6 +332,9 @@ class ShareLink(Base):
     )
     token_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     token_prefix: Mapped[str] = mapped_column(Text, nullable=False)
+    # токен открытым текстом: ссылка отзываемая, владелец должен уметь
+    # скопировать её повторно; у старых ссылок NULL
+    token: Mapped[str | None] = mapped_column(Text, nullable=True)
     scope: Mapped[str] = mapped_column(Text, default="read", nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

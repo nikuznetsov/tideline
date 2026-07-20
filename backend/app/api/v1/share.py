@@ -30,7 +30,7 @@ async def list_share_links(
     ws: Workspace = Depends(get_workspace_owner),
     _user=Depends(get_current_user),
 ):
-    return (
+    links = (
         (
             await db.execute(
                 select(ShareLink)
@@ -41,6 +41,14 @@ async def list_share_links(
         .scalars()
         .all()
     )
+    base_url = get_settings().app_base_url
+    out = []
+    for link in links:
+        item = ShareLinkOut.model_validate(link)
+        if link.token and link.revoked_at is None:
+            item.url = f"{base_url}/s/{link.token}"
+        out.append(item)
+    return out
 
 
 @router.post("/share-links", response_model=ShareLinkCreated)
@@ -55,6 +63,7 @@ async def create_share_link(
         workspace_id=ws.id,
         token_hash=hash_share_token(token),
         token_prefix=token[:8],
+        token=token,
         expires_at=body.expires_at,
     )
     db.add(link)

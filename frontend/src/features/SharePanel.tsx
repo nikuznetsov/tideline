@@ -37,7 +37,7 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
         <p className="mb-3 text-xs text-muted">
           Ссылка открывает таймлайн и реестр проектов в режиме чтения, без
-          логина. Токен показывается один раз — при создании.
+          логина.
         </p>
         <button
           onClick={() => create.mutate()}
@@ -70,12 +70,20 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
                     ` · открывалась ${new Date(l.last_accessed_at).toLocaleDateString("ru")}`}
                 </div>
               </div>
-              <button
-                onClick={() => revoke.mutate(l.id)}
-                className="text-xs text-mts underline"
-              >
-                Отозвать
-              </button>
+              <div className="flex items-center gap-3">
+                {l.url && (
+                  <CopyButton
+                    text={l.url}
+                    className="text-xs underline hover:text-ink"
+                  />
+                )}
+                <button
+                  onClick={() => revoke.mutate(l.id)}
+                  className="text-xs text-mts underline"
+                >
+                  Отозвать
+                </button>
+              </div>
             </div>
           ))}
           {links.isSuccess && active.length === 0 && !created && (
