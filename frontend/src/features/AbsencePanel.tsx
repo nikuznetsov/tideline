@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { api, ApiError } from "../api/client";
-import type { AbsenceItem, Member } from "../api/types";
-import { rangeLabel, todayISO } from "../lib/dates";
+import type { AbsenceItem, Member, NonWorkingDayItem } from "../api/types";
+import { fromISO, rangeLabel, todayISO } from "../lib/dates";
 
 const KIND_LABEL: Record<string, string> = {
   vacation: "Отпуск",
@@ -248,8 +248,108 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         )}
+
+        <NonWorkingDays onChanged={invalidate} />
       </div>
     </aside>
+  );
+}
+
+function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
+  const queryClient = useQueryClient();
+  const [day, setDay] = useState("");
+  const [title, setTitle] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const days = useQuery<NonWorkingDayItem[]>({
+    queryKey: ["non-working-days"],
+    queryFn: () => api.get<NonWorkingDayItem[]>("/non-working-days"),
+  });
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["non-working-days"] });
+    onChanged();
+  };
+
+  const create = useMutation({
+    mutationFn: (body: { day: string; title: string | null }) =>
+      api.post("/non-working-days", body),
+    onSuccess: () => {
+      setError(null);
+      setDay("");
+      setTitle("");
+      refresh();
+    },
+    onError: (e) =>
+      setError(e instanceof ApiError ? e.message : "Не удалось сохранить"),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/non-working-days/${id}`),
+    onSuccess: refresh,
+  });
+
+  const upcoming = (days.data ?? []).filter((d) => d.day >= todayISO());
+
+  return (
+    <div className="mt-6 border-t border-line pt-4">
+      <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted">
+        Производственный календарь
+      </div>
+      <p className="mb-2 text-xs text-muted">
+        Праздники и переносы для всей команды: день выпадает из ёмкости у всех.
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (day) create.mutate({ day, title: title.trim() || null });
+        }}
+        className="mb-2 flex gap-2"
+      >
+        <input
+          type="date"
+          value={day}
+          onChange={(e) => setDay(e.target.value)}
+          required
+          className="rounded border border-line bg-page px-2 py-1.5 text-sm text-ink"
+        />
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Название (напр. День России)"
+          className="flex-1 rounded border border-line bg-page px-2 py-1.5 text-sm text-ink"
+        />
+        <button
+          type="submit"
+          disabled={create.isPending}
+          className="rounded bg-ink px-3 py-1.5 text-sm font-medium text-surface disabled:opacity-50"
+        >
+          +
+        </button>
+      </form>
+      {error && <p className="mb-2 text-xs text-mts">{error}</p>}
+      <div className="space-y-1">
+        {days.isSuccess && upcoming.length === 0 && (
+          <p className="text-xs text-muted">Будущих нерабочих дней нет.</p>
+        )}
+        {upcoming.map((d) => (
+          <div
+            key={d.id}
+            className="flex items-center justify-between rounded border border-line px-3 py-1.5 text-sm"
+          >
+            <span className="font-nums">
+              {fromISO(d.day).toLocaleDateString("ru")}{" "}
+              <span className="text-muted">{d.title ?? ""}</span>
+            </span>
+            <button
+              onClick={() => remove.mutate(d.id)}
+              className="text-xs text-mts underline"
+            >
+              Убрать
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

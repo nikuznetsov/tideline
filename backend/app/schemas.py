@@ -83,6 +83,20 @@ class AbsenceCreate(BaseModel):
     clear_allocations: bool = False
 
 
+# ---------- производственный календарь ----------
+
+class NonWorkingDayOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    day: date
+    title: str | None
+
+
+class NonWorkingDayCreate(BaseModel):
+    day: date
+    title: str | None = None
+
+
 # ---------- allocations ----------
 
 class AllocationOut(BaseModel):

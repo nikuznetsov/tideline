@@ -165,6 +165,12 @@ export interface AbsenceItem {
   note: string | null;
 }
 
+export interface NonWorkingDayItem {
+  id: string;
+  day: string;
+  title: string | null;
+}
+
 export interface User {
   id: string;
   email: string;

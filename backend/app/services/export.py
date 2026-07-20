@@ -40,7 +40,8 @@ async def _timeline_rows(
         .scalars()
         .all()
     }
-    days = date_range(date_from, date_to)
+    # выходные не экспортируются — как и на таймлайне; праздники остаются
+    days = [d for d in date_range(date_from, date_to) if not is_weekend(d)]
     alloc_map: dict[tuple, list] = {}
     for a in allocations:
         alloc_map.setdefault((a.member_id, a.day), []).append(a)

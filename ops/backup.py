@@ -147,7 +147,31 @@ def main() -> None:
 
     if not label:
         rotate(client, bucket, prefix)
+    record_status(database_url, environment)
     print("backup ok")
+
+
+def record_status(database_url: str, environment: str) -> None:
+    """Отметка успеха в audit_log — по ней приложение отдаёт метрику
+    backup_last_success_timestamp (алерт: бэкапа не было больше 30 часов)."""
+    import psycopg
+
+    slug = os.environ.get("WORKSPACE_SLUG", "xops")
+    try:
+        with psycopg.connect(database_url) as conn, conn.cursor() as cur:
+            cur.execute("SELECT id FROM workspace WHERE slug = %s", (slug,))
+            row = cur.fetchone()
+            if not row:
+                return
+            cur.execute(
+                """
+                INSERT INTO audit_log (workspace_id, entity_type, action, after, created_at)
+                VALUES (%s, 'backup', 'backup_ok', %s, now())
+                """,
+                (row[0], json.dumps({"environment": environment})),
+            )
+    except Exception as e:  # статус не должен ронять сам бэкап
+        print(f"WARN: не удалось записать статус бэкапа: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

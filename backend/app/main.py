@@ -6,17 +6,18 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, text
 
-from app.api.v1 import admin, allocations, auth, capacity, export, members, projects, share, timeline, weeks
+from app.api.v1 import admin, allocations, auth, calendar, capacity, export, members, projects, share, timeline, weeks
 from app.bootstrap import ensure_bootstrap
 from app.core.config import get_settings
 from app.core.observability import (
     ALLOCATIONS_TOTAL,
+    BACKUP_LAST_SUCCESS,
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
     metrics_response,
     setup_logging,
 )
-from app.db.models import Allocation
+from app.db.models import Allocation, AuditLog
 from app.db.session import get_session_factory
 
 
@@ -41,7 +42,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestContextMiddleware)
 
 api = FastAPI(title="xOps Tideline API")
-for router_module in (auth, timeline, allocations, capacity, members, projects, weeks, export, share, admin):
+for router_module in (auth, timeline, allocations, capacity, members, projects, weeks, export, share, admin, calendar):
     api.include_router(router_module.router)
 api.include_router(share.public_router)
 app.mount("/api/v1", api)
@@ -68,6 +69,27 @@ async def readyz():
 
 @app.get("/metrics")
 async def metrics():
+    from datetime import timezone as tz
+
+    try:
+        async with get_session_factory()() as db:
+            last_backup = (
+                await db.execute(
+                    select(AuditLog.created_at)
+                    .where(
+                        AuditLog.entity_type == "backup",
+                        AuditLog.action == "backup_ok",
+                    )
+                    .order_by(AuditLog.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if last_backup:
+                if last_backup.tzinfo is None:
+                    last_backup = last_backup.replace(tzinfo=tz.utc)
+                BACKUP_LAST_SUCCESS.set(last_backup.timestamp())
+    except Exception:
+        pass  # метрики не должны падать из-за БД
     return metrics_response()
 
 

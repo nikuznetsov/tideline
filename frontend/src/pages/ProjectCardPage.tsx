@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { ProjectDetail, ProjectLoad } from "../api/types";
 import { addDays, currentMonday, rangeLabel } from "../lib/dates";
+import { AuditHistory } from "../features/AuditHistory";
 import { fmtNum } from "../lib/format";
 import { Markdown } from "../lib/markdown";
 
@@ -58,6 +59,7 @@ export function ProjectCardPage() {
   const [updateHealth, setUpdateHealth] = useState<string>("");
   const [editField, setEditField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   if (project.isLoading) return <p className="py-10 text-center text-muted">Загрузка…</p>;
   if (!project.data)
@@ -249,6 +251,24 @@ export function ProjectCardPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* история изменений (аудит) */}
+      <div className="mt-4 rounded-lg border border-line bg-surface p-3">
+        <button
+          onClick={() => setHistoryOpen((v) => !v)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">
+            История изменений
+          </span>
+          <span className="text-xs text-muted">{historyOpen ? "▾" : "▸"}</span>
+        </button>
+        {historyOpen && id && (
+          <div className="mt-2">
+            <AuditHistory entityType="project" entityId={id} />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useState } from "react";
+import { FormEvent, Fragment, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { Member } from "../api/types";
+import { AuditHistory } from "../features/AuditHistory";
 
 export function TeamPage() {
   const queryClient = useQueryClient();
@@ -126,7 +127,7 @@ export function TeamPage() {
                 <th className="px-3 py-2">Имя</th>
                 <th className="px-3 py-2">Роль</th>
                 <th className="px-2 py-2">Активен</th>
-                <th className="w-16 px-2 py-2" />
+                <th className="w-32 px-2 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -177,8 +178,10 @@ function MemberRow({
 }) {
   const [name, setName] = useState(member.name);
   const [role, setRole] = useState(member.role_title ?? "");
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   return (
+    <Fragment>
     <tr className={`border-b border-line/50 ${member.is_active ? "" : "opacity-50"}`}>
       <td className="px-2 py-1.5 whitespace-nowrap">
         <button
@@ -225,11 +228,26 @@ function MemberRow({
           title={member.is_active ? "Скрыть из сетки и поиска" : "Вернуть в сетку"}
         />
       </td>
-      <td className="px-2 py-1.5 text-right">
+      <td className="whitespace-nowrap px-2 py-1.5 text-right">
+        <button
+          onClick={() => setHistoryOpen((v) => !v)}
+          className="mr-2 text-xs text-muted underline hover:text-ink"
+          title="История изменений сотрудника"
+        >
+          история
+        </button>
         <button onClick={onDelete} className="text-xs text-mts underline">
           Удалить
         </button>
       </td>
     </tr>
+    {historyOpen && (
+      <tr className="border-b border-line/50 bg-page/50">
+        <td colSpan={5} className="px-4 py-2">
+          <AuditHistory entityType="member" entityId={member.id} />
+        </td>
+      </tr>
+    )}
+    </Fragment>
   );
 }
