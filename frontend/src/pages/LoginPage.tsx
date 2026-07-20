@@ -3,11 +3,9 @@ import { FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 
-export function RegisterPage() {
+export function LoginPage() {
   const [params] = useSearchParams();
   const next = params.get("next");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,17 +17,11 @@ export function RegisterPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.post("/auth/register", {
-        first_name: firstName,
-        last_name: lastName,
-        email,
-        password,
-      });
+      await api.post("/auth/login", { email, password });
       await queryClient.invalidateQueries({ queryKey: ["me"] });
+      // App перерисуется как авторизованный и уведёт на next / пространство
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Не удалось создать аккаунт",
-      );
+      setError(err instanceof ApiError ? err.message : "Не удалось войти — проверьте сеть");
     } finally {
       setBusy(false);
     }
@@ -46,51 +38,28 @@ export function RegisterPage() {
           onSubmit={submit}
           className="rounded-lg border border-line bg-surface p-6"
         >
-          <h1 className="font-wide text-sm font-bold">Новый аккаунт</h1>
-          <p className="mt-1 text-xs text-muted">
-            {next?.startsWith("/join/")
-              ? "После регистрации вы сразу примете приглашение."
-              : "Аккаунт без доступов: вступайте по приглашению или создайте своё пространство."}
-          </p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">Имя</span>
-              <input
-                required
-                autoFocus
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="w-full rounded border border-line bg-page px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">Фамилия</span>
-              <input
-                required
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="w-full rounded border border-line bg-page px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-          <label className="mt-3 block">
+          <h1 className="font-wide text-sm font-bold">Вход</h1>
+          {next?.startsWith("/join/") && (
+            <p className="mt-1 text-xs text-muted">
+              После входа вы вернётесь к приглашению.
+            </p>
+          )}
+          <label className="mt-4 block">
             <span className="mb-1 block text-xs text-muted">Email</span>
             <input
               type="email"
               required
+              autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded border border-line bg-page px-3 py-2 text-sm"
             />
           </label>
           <label className="mt-3 block">
-            <span className="mb-1 block text-xs text-muted">
-              Пароль (не короче 8 символов)
-            </span>
+            <span className="mb-1 block text-xs text-muted">Пароль</span>
             <input
               type="password"
               required
-              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded border border-line bg-page px-3 py-2 text-sm"
@@ -102,15 +71,15 @@ export function RegisterPage() {
             disabled={busy}
             className="mt-4 w-full rounded bg-mts px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? "Создаём…" : "Создать аккаунт"}
+            {busy ? "Вход…" : "Войти"}
           </button>
           <p className="mt-4 text-xs text-muted">
-            Уже есть аккаунт?{" "}
+            Нет аккаунта?{" "}
             <Link
-              to={next ? `/login?next=${encodeURIComponent(next)}` : "/"}
+              to={next ? `/register?next=${encodeURIComponent(next)}` : "/register"}
               className="text-mts underline"
             >
-              Войти
+              Создать
             </Link>
           </p>
         </form>

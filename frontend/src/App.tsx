@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { AccuracyPage } from "./pages/AccuracyPage";
 import { JoinPage } from "./pages/JoinPage";
 import { LandingPage } from "./pages/LandingPage";
+import { LoginPage } from "./pages/LoginPage";
 import { ProjectCardPage } from "./pages/ProjectCardPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -47,6 +48,7 @@ export default function App() {
     return (
       <Routes>
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/join/:token" element={<JoinPage user={null} />} />
         <Route path="*" element={<LandingPage />} />
       </Routes>
@@ -57,6 +59,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/register" element={<HomeRedirect />} />
+      <Route path="/login" element={<HomeRedirect />} />
       <Route path="/workspaces" element={<WorkspacesPage user={user!} />} />
       <Route path="/join/:token" element={<JoinPage user={user!} />} />
       <Route
