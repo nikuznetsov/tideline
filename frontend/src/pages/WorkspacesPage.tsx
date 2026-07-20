@@ -3,6 +3,7 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
+import { ProfileDialog } from "../components/ProfileDialog";
 import { useMyWorkspaces, WorkspaceInfo } from "../workspace";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -36,6 +37,7 @@ export function WorkspacesPage({ user }: { user: User }) {
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const create = useMutation({
     mutationFn: (body: { name: string; slug: string }) =>
@@ -62,7 +64,13 @@ export function WorkspacesPage({ user }: { user: User }) {
           <span className="font-wide text-base font-bold uppercase">xOps</span>
           <span className="font-wide text-base font-medium text-mts">Tideline</span>
         </div>
-        <span className="text-xs text-muted">{user.email}</span>
+        <button
+          onClick={() => setProfileOpen(true)}
+          className="max-w-40 truncate text-xs text-muted hover:text-ink"
+          title="Мой профиль"
+        >
+          {user.name}
+        </button>
       </header>
 
       <main className="mx-auto max-w-2xl px-6 py-8">
@@ -146,6 +154,7 @@ export function WorkspacesPage({ user }: { user: User }) {
           {error && <p className="mt-2 text-xs text-mts">{error}</p>}
         </form>
       </main>
+      {profileOpen && <ProfileDialog user={user} onClose={() => setProfileOpen(false)} />}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import re
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -69,12 +70,16 @@ async def create_workspace(
         raise HTTPException(
             422, "Слаг: латиница, цифры и дефис, от 2 до 32 символов"
         )
-    dup = (
-        await db.execute(select(Workspace.id).where(Workspace.slug == slug))
-    ).scalar_one_or_none()
-    if dup:
-        raise HTTPException(422, f"Адрес «{slug}» уже занят")
-    ws = Workspace(slug=slug, name=body.name.strip() or slug)
+    # названия могут совпадать, а адрес — уникальный: если занят, добавляем
+    # случайный суффикс (первому достаётся чистый слаг)
+    final = slug
+    while (
+        await db.execute(select(Workspace.id).where(Workspace.slug == final))
+    ).scalar_one_or_none():
+        suffix = secrets.token_hex(3)
+        base = slug[: 32 - len(suffix) - 1].rstrip("-")
+        final = f"{base}-{suffix}"
+    ws = Workspace(slug=final, name=body.name.strip() or final)
     db.add(ws)
     await db.flush()
     db.add(Membership(workspace_id=ws.id, user_id=user.id, role="owner"))

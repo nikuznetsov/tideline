@@ -370,3 +370,17 @@ async def test_change_password(client, auth_client, workspace):
 async def test_profile_requires_auth(client, workspace):
     assert (await client.patch("/api/v1/auth/me", json={"name": "x", "email": "x@y.com"})).status_code == 401
     assert (await client.post("/api/v1/auth/me/password", json={"current_password": "a", "new_password": "abcdefgh"})).status_code == 401
+
+
+async def test_duplicate_slug_gets_suffix(client, workspace):
+    await _register(client, "founder2@example.com")
+    # тот же адрес, что у сид-пространства xops → займём его своим
+    r1 = await client.post("/api/v1/workspaces", json={"name": "Первая", "slug": "team"})
+    assert r1.status_code == 200
+    assert r1.json()["slug"] == "team"
+    # второе с тем же адресом и тем же названием — адрес получает суффикс
+    r2 = await client.post("/api/v1/workspaces", json={"name": "Первая", "slug": "team"})
+    assert r2.status_code == 200
+    assert r2.json()["slug"] != "team"
+    assert r2.json()["slug"].startswith("team-")
+    assert r2.json()["name"] == "Первая"  # имена могут совпадать
