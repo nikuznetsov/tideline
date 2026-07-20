@@ -106,10 +106,24 @@ class Membership(Base):
 
 class Member(Base, TimestampMixin):
     __tablename__ = "member"
+    __table_args__ = (
+        # сотрудник = участник пространства; один аккаунт — одна активная строка
+        Index(
+            "uq_member_ws_user",
+            "workspace_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL AND deleted_at IS NULL"),
+            sqlite_where=text("user_id IS NOT NULL AND deleted_at IS NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     workspace_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("workspace.id"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("app_user.id"), nullable=True
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     role_title: Mapped[str | None] = mapped_column(Text, nullable=True)

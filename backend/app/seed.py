@@ -10,20 +10,22 @@ from decimal import Decimal
 from sqlalchemy import delete, select
 
 from app.bootstrap import ensure_bootstrap
+from app.core.security import hash_password
 from app.db import models as m
 from app.db.session import get_session_factory
 from app.domain.calendar import is_weekend, week_start_of
 from app.domain.week_close import build_week_payload, diff_payloads
 
 MEMBERS = [
-    ("Алексей Громов", "ML-инженер", ["cuda", "ml", "rag"]),
-    ("Мария Ветрова", "Backend-инженер", ["python", "infra"]),
-    ("Иван Соколов", "MLOps", ["infra", "k8s", "cuda"]),
-    ("Дарья Лунина", "Data Engineer", ["etl", "python"]),
-    ("Пётр Волков", "Backend-инженер", ["python", "go"]),
-    ("Анна Морозова", "ML-инженер", ["ml", "rag", "nlp"]),
-    ("Сергей Каменев", "Fullstack", ["ts", "python"]),
+    ("Алексей Громов", "ML-инженер", ["cuda", "ml", "rag"], "alexey@demo.local"),
+    ("Мария Ветрова", "Backend-инженер", ["python", "infra"], "maria@demo.local"),
+    ("Иван Соколов", "MLOps", ["infra", "k8s", "cuda"], "ivan@demo.local"),
+    ("Дарья Лунина", "Data Engineer", ["etl", "python"], "darya@demo.local"),
+    ("Пётр Волков", "Backend-инженер", ["python", "go"], "petr@demo.local"),
+    ("Анна Морозова", "ML-инженер", ["ml", "rag", "nlp"], "anna@demo.local"),
+    ("Сергей Каменев", "Fullstack", ["ts", "python"], "sergey@demo.local"),
 ]
+DEMO_PASSWORD = "demo-password-123"
 
 PROJECTS = [
     ("RAGX", "RAG-платформа для поддержки", "active", "green"),
@@ -54,9 +56,30 @@ async def seed() -> None:
 
         rng = random.Random(42)
         members = []
-        for i, (name, role, tags) in enumerate(MEMBERS):
+        for i, (name, role, tags, email) in enumerate(MEMBERS):
+            # команда = участники: каждому сотруднику — аккаунт и доступ viewer
+            account = (
+                await db.execute(select(m.AppUser).where(m.AppUser.email == email))
+            ).scalar_one_or_none()
+            if not account:
+                account = m.AppUser(
+                    email=email, name=name, password_hash=hash_password(DEMO_PASSWORD)
+                )
+                db.add(account)
+                await db.flush()
+            membership = (
+                await db.execute(
+                    select(m.Membership).where(
+                        m.Membership.workspace_id == ws.id,
+                        m.Membership.user_id == account.id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if not membership:
+                db.add(m.Membership(workspace_id=ws.id, user_id=account.id, role="viewer"))
             member = m.Member(
-                workspace_id=ws.id, name=name, role_title=role, tags=tags, sort_order=i
+                workspace_id=ws.id, user_id=account.id, name=name,
+                role_title=role, tags=tags, sort_order=i,
             )
             db.add(member)
             members.append(member)

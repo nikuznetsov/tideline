@@ -1,5 +1,7 @@
 export interface Member {
   id: string;
+  user_id: string | null;
+  email: string | null;
   name: string;
   role_title: string | null;
   capacity_per_day: string;

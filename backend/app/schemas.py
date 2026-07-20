@@ -86,6 +86,8 @@ class InviteLinkCreated(InviteLinkOut):
 class MemberOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    user_id: uuid.UUID | None = None
+    email: str | None = None
     name: str
     role_title: str | None
     capacity_per_day: Decimal
@@ -95,14 +97,13 @@ class MemberOut(BaseModel):
 
 
 class MemberCreate(BaseModel):
-    name: str
+    """Сотрудник — это участник пространства: создаётся из аккаунта."""
+
+    user_id: uuid.UUID
     role_title: str | None = None
-    capacity_per_day: Decimal = Decimal("1.0")
-    tags: list[str] = []
 
 
 class MemberPatch(BaseModel):
-    name: str | None = None
     role_title: str | None = None
     capacity_per_day: Decimal | None = None
     tags: list[str] | None = None

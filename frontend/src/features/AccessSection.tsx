@@ -38,8 +38,8 @@ export function AccessSection() {
     queryKey: ["members"],
     queryFn: () => wapi.get<Member[]>("/members"),
   });
-  const addToTimeline = useMutation({
-    mutationFn: (name: string) => wapi.post("/members", { name, role_title: null }),
+  const addToTeam = useMutation({
+    mutationFn: (userId: string) => wapi.post("/members", { user_id: userId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
       queryClient.invalidateQueries({ queryKey: ["timeline"] });
@@ -47,7 +47,7 @@ export function AccessSection() {
     onError: (e) =>
       setError(e instanceof ApiError ? e.message : "Не удалось сохранить"),
   });
-  const memberNames = new Set((members.data ?? []).map((m) => m.name.trim().toLowerCase()));
+  const teamUserIds = new Set((members.data ?? []).map((m) => m.user_id).filter(Boolean));
 
   const participants = useQuery<Participant[]>({
     queryKey: ["participants", current.slug],
@@ -105,9 +105,9 @@ export function AccessSection() {
     <section className="mt-8">
       <h2 className="mb-1 font-wide text-base font-bold">Доступ в пространство</h2>
       <p className="mb-4 text-xs text-muted">
-        Аккаунты с доступом к «{current.name}» и их роли. Это не то же самое,
-        что строки таймлайна: участник может смотреть план, не будучи в нём,
-        и наоборот.
+        Аккаунты с доступом к «{current.name}» и их роли. Команда выше — это
+        участники, добавленные на таймлайн: в команде у всех есть доступ, но не
+        все, у кого есть доступ, в команде.
       </p>
       {error && <p className="mb-3 text-xs text-mts">{error}</p>}
 
@@ -145,13 +145,13 @@ export function AccessSection() {
                 </td>
                 {isOwner && (
                   <td className="whitespace-nowrap px-2 py-2 text-right">
-                    {!memberNames.has(p.name.trim().toLowerCase()) && (
+                    {!teamUserIds.has(p.user_id) && (
                       <button
-                        onClick={() => addToTimeline.mutate(p.name)}
+                        onClick={() => addToTeam.mutate(p.user_id)}
                         className="mr-2 text-xs text-muted underline hover:text-ink"
-                        title="Создать строку с этим именем на таймлайне"
+                        title="Добавить в команду — появится строка на таймлайне"
                       >
-                        на таймлайн
+                        в команду
                       </button>
                     )}
                     <button

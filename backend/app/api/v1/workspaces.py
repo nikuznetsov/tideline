@@ -199,6 +199,24 @@ async def remove_participant(
     record_audit(db, ws.id, actor.id, "membership", membership.id, "remove",
                  {"user_id": str(user_id), "role": membership.role}, None)
     await db.delete(membership)
+
+    # команда — подмножество участников: без доступа нет и строки на таймлайне
+    from app.db.models import Member
+
+    linked = (
+        await db.execute(
+            select(Member).where(
+                Member.workspace_id == ws.id,
+                Member.user_id == user_id,
+                Member.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if linked:
+        linked.deleted_at = datetime.now(timezone.utc)
+        linked.is_active = False
+        record_audit(db, ws.id, actor.id, "member", linked.id, "soft_delete",
+                     {"name": linked.name, "reason": "access_removed"}, None)
     await db.commit()
     return {"ok": True}
 

@@ -25,6 +25,8 @@ const days = Array.from({ length: 14 }, (_, i) => {
 
 const member = {
   id: "m1",
+  user_id: null,
+  email: null,
   name: "Аня",
   role_title: null,
   capacity_per_day: "1",

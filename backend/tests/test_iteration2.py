@@ -126,6 +126,50 @@ async def test_revoked_invite_404(auth_client, client2, workspace):
     assert resp.status_code == 404
 
 
+async def test_team_member_is_participant(auth_client, client2, workspace):
+    """Команда — подмножество участников: свободного ввода имён нет."""
+    # чужой (не участник) — нельзя
+    await _register(client2, "outsider@example.com")
+    outsider_id = (await client2.get("/api/v1/auth/me")).json()["id"]
+    resp = await auth_client.post(
+        "/api/v1/w/xops/members", json={"user_id": outsider_id}
+    )
+    assert resp.status_code == 422
+
+    # участник — можно, имя берётся из аккаунта
+    invite = await auth_client.post("/api/v1/w/xops/invite-links")
+    await client2.post(f"/api/v1/join/{invite.json()['token']}")
+    resp = await auth_client.post(
+        "/api/v1/w/xops/members",
+        json={"user_id": outsider_id, "role_title": "Инженер"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == "Пётр Тестов"
+    assert resp.json()["email"] == "outsider@example.com"
+
+    # второй раз — уже в команде
+    resp = await auth_client.post(
+        "/api/v1/w/xops/members", json={"user_id": outsider_id}
+    )
+    assert resp.status_code == 422
+
+
+async def test_removing_access_removes_from_team(auth_client, client2, workspace):
+    await _register(client2, "leaver@example.com")
+    leaver_id = (await client2.get("/api/v1/auth/me")).json()["id"]
+    invite = await auth_client.post("/api/v1/w/xops/invite-links")
+    await client2.post(f"/api/v1/join/{invite.json()['token']}")
+    await auth_client.post("/api/v1/w/xops/members", json={"user_id": leaver_id})
+
+    members = (await auth_client.get("/api/v1/w/xops/members")).json()
+    assert any(m["user_id"] == leaver_id for m in members)
+
+    resp = await auth_client.delete(f"/api/v1/w/xops/participants/{leaver_id}")
+    assert resp.status_code == 200
+    members = (await auth_client.get("/api/v1/w/xops/members")).json()
+    assert all(m["user_id"] != leaver_id for m in members)
+
+
 async def test_owner_changes_role_and_last_owner_protected(auth_client, client2, workspace):
     resp = await auth_client.post("/api/v1/w/xops/invite-links")
     token = resp.json()["token"]

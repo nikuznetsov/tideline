@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_workspace, get_workspace_editor
-from app.db.models import Absence, AppUser, Member, Workspace
+from app.db.models import Absence, AppUser, Member, Membership, Workspace
 from app.db.session import get_db
 from app.schemas import (
     AbsenceCreate,
@@ -37,17 +37,20 @@ async def list_members(
     ws: Workspace = Depends(get_workspace),
     _user=Depends(get_current_user),
 ):
-    return (
-        (
-            await db.execute(
-                select(Member)
-                .where(Member.workspace_id == ws.id, Member.deleted_at.is_(None))
-                .order_by(Member.sort_order, Member.name)
-            )
+    rows = (
+        await db.execute(
+            select(Member, AppUser.email)
+            .outerjoin(AppUser, AppUser.id == Member.user_id)
+            .where(Member.workspace_id == ws.id, Member.deleted_at.is_(None))
+            .order_by(Member.sort_order, Member.name)
         )
-        .scalars()
-        .all()
-    )
+    ).all()
+    out = []
+    for m, email in rows:
+        item = MemberOut.model_validate(m)
+        item.email = email
+        out.append(item)
+    return out
 
 
 @router.post("/members", response_model=MemberOut)
@@ -57,6 +60,31 @@ async def create_member(
     ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
+    # в команду попадают только участники пространства
+    membership = (
+        await db.execute(
+            select(Membership).where(
+                Membership.workspace_id == ws.id, Membership.user_id == body.user_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not membership:
+        raise HTTPException(
+            422, "Этот аккаунт не участник пространства — сначала пригласите его"
+        )
+    target = await db.get(AppUser, body.user_id)
+    existing = (
+        await db.execute(
+            select(Member.id).where(
+                Member.workspace_id == ws.id,
+                Member.user_id == body.user_id,
+                Member.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(422, f"{target.name} уже в команде")
+
     max_order = (
         await db.execute(
             select(func.coalesce(func.max(Member.sort_order), 0)).where(
@@ -66,17 +94,18 @@ async def create_member(
     ).scalar_one()
     member = Member(
         workspace_id=ws.id,
-        name=body.name,
+        user_id=body.user_id,
+        name=target.name,
         role_title=body.role_title,
-        capacity_per_day=body.capacity_per_day,
-        tags=body.tags,
         sort_order=max_order + 1,
     )
     db.add(member)
     await db.flush()
     record_audit(db, ws.id, user.id, "member", member.id, "create", None, _member_dict(member))
     await db.commit()
-    return member
+    out = MemberOut.model_validate(member)
+    out.email = target.email
+    return out
 
 
 @router.patch("/members/{member_id}", response_model=MemberOut)
@@ -99,7 +128,7 @@ async def patch_member(
     if not member:
         raise HTTPException(404, "Сотрудник не найден")
     before = _member_dict(member)
-    for field in ("name", "role_title", "capacity_per_day", "tags", "is_active"):
+    for field in ("role_title", "capacity_per_day", "tags", "is_active"):
         value = getattr(body, field)
         if value is not None:
             setattr(member, field, value)
