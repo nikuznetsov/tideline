@@ -17,6 +17,16 @@ from app.domain.capacity import load_calendar_context
 
 DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
+# защита от formula injection: значение, начинающееся с =,+,-,@ или управляющего
+# символа, Excel/LibreOffice трактует как формулу. Экранируем ведущим апострофом.
+_FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r", "\n")
+
+
+def _safe(value):
+    if isinstance(value, str) and value.startswith(_FORMULA_LEAD):
+        return "'" + value
+    return value
+
 HEADER_FILL = PatternFill("solid", fgColor="1D2023")
 HEADER_FONT = Font(color="FFFFFF", bold=True)
 WEEKEND_FILL = PatternFill("solid", fgColor="EDEDED")
@@ -90,8 +100,8 @@ async def export_timeline_xlsx(
     sh.column_dimensions["B"].width = 14
 
     for r, row in enumerate(rows, start=2):
-        sh.cell(r, 1, row["member"])
-        sh.cell(r, 2, row["project"])
+        sh.cell(r, 1, _safe(row["member"]))
+        sh.cell(r, 2, _safe(row["project"]))
         for c, (d, value) in enumerate(zip(days, row["cells"]), start=3):
             cell = sh.cell(r, c, value)
             if is_weekend(d) or d in nw_days:
@@ -115,7 +125,7 @@ async def export_timeline_csv(
     )
     for row in rows:
         writer.writerow(
-            [row["member"], row["project"]]
+            [_safe(row["member"]), _safe(row["project"])]
             + [("" if v is None else v) for v in row["cells"]]
         )
     return buf.getvalue()
@@ -148,11 +158,11 @@ async def export_projects_xlsx(db: AsyncSession, workspace_id: uuid.UUID) -> byt
         cell.fill = HEADER_FILL
         sh.column_dimensions[get_column_letter(i)].width = w
     for r, p in enumerate(projects, start=2):
-        sh.cell(r, 1, p.code)
-        sh.cell(r, 2, p.name)
+        sh.cell(r, 1, _safe(p.code))
+        sh.cell(r, 2, _safe(p.name))
         sh.cell(r, 3, LIFECYCLE_LABEL.get(p.lifecycle, p.lifecycle))
         sh.cell(r, 4, HEALTH_LABEL.get(p.health, p.health))
-        sh.cell(r, 5, p.weekly_update)
+        sh.cell(r, 5, _safe(p.weekly_update))
     sh.freeze_panes = "A2"
     buf = io.BytesIO()
     wb.save(buf)

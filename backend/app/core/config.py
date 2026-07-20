@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     session_max_age_seconds: int = 60 * 60 * 24 * 14
     static_dir: str = "static"
+    # если задан, /metrics требует Bearer-токен (иначе метрики публичны)
+    metrics_token: str | None = None
 
     backup_s3_endpoint: str | None = None
     backup_s3_bucket: str | None = None

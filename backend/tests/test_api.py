@@ -259,6 +259,48 @@ async def test_export_xlsx(auth_client, team, monday):
     assert resp.status_code == 200
 
 
+def test_export_escapes_formula_cells():
+    from app.services.export import _safe
+
+    assert _safe("=1+1") == "'=1+1"
+    assert _safe("+cmd") == "'+cmd"
+    assert _safe("-2") == "'-2"
+    assert _safe("@x") == "'@x"
+    assert _safe("\tHACK") == "'\tHACK"
+    # безопасные значения не трогаем
+    assert _safe("TEST") == "TEST"
+    assert _safe("Аня") == "Аня"
+    assert _safe(None) is None
+
+
+async def test_export_csv_escapes_injection(auth_client, db, team, monday):
+    """Код проекта с ведущим = не должен попасть в CSV как формула."""
+    from app.db.models import Project
+
+    evil = Project(workspace_id=team["project"].workspace_id, code="=SUM(A1)", name="Злой")
+    db.add(evil)
+    await db.flush()
+    db.add(
+        Allocation(
+            workspace_id=evil.workspace_id,
+            member_id=team["members"][0].id,
+            project_id=evil.id,
+            day=monday,
+            load=Decimal("0.5"),
+        )
+    )
+    await db.commit()
+
+    resp = await auth_client.get(
+        "/api/v1/w/xops/export/timeline.csv",
+        params={"from": monday.isoformat(), "to": (monday + timedelta(days=13)).isoformat()},
+    )
+    assert resp.status_code == 200
+    body = resp.content.decode("utf-8-sig")
+    assert "'=SUM(A1)" in body
+    assert ",=SUM(A1)" not in body
+
+
 async def test_share_link_lifecycle(auth_client, client, team, monday):
     resp = await auth_client.post("/api/v1/w/xops/share-links", json={})
     assert resp.status_code == 200

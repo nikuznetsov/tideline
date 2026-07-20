@@ -271,3 +271,48 @@ async def test_absence_rejects_foreign_member(auth_client, other_workspace, team
         },
     )
     assert resp.status_code == 404
+
+
+async def test_milestones_reject_foreign_project_and_member(auth_client, team):
+    import uuid
+
+    resp = await auth_client.post(
+        "/api/v1/w/xops/projects", json={"code": "MS", "name": "С вехами"}
+    )
+    assert resp.status_code == 200
+    pid = resp.json()["id"]
+
+    # чужой/несуществующий project_id → 404
+    resp = await auth_client.put(
+        f"/api/v1/w/xops/projects/{uuid.uuid4()}/milestones",
+        json=[{"title": "M1"}],
+    )
+    assert resp.status_code == 404
+
+    # валидный проект, но owner_member_id не из команды → 422
+    resp = await auth_client.put(
+        f"/api/v1/w/xops/projects/{pid}/milestones",
+        json=[{"title": "M1", "owner_member_id": str(uuid.uuid4())}],
+    )
+    assert resp.status_code == 422
+
+    # корректная веха
+    resp = await auth_client.put(
+        f"/api/v1/w/xops/projects/{pid}/milestones", json=[{"title": "M1"}]
+    )
+    assert resp.status_code == 200
+
+
+async def test_metrics_token_protection(client, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("METRICS_TOKEN", "s3cret")
+    get_settings.cache_clear()
+    try:
+        assert (await client.get("/metrics")).status_code == 401
+        ok = await client.get("/metrics", headers={"Authorization": "Bearer s3cret"})
+        assert ok.status_code == 200
+        assert (await client.get("/metrics?token=s3cret")).status_code == 200
+        assert (await client.get("/metrics?token=wrong")).status_code == 401
+    finally:
+        get_settings.cache_clear()

@@ -1,7 +1,8 @@
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, text
@@ -87,8 +88,15 @@ async def readyz():
 
 
 @app.get("/metrics")
-async def metrics():
+async def metrics(request: Request):
     from datetime import timezone as tz
+
+    token = get_settings().metrics_token
+    if token:
+        auth = request.headers.get("authorization", "")
+        provided = auth[7:] if auth.startswith("Bearer ") else request.query_params.get("token", "")
+        if not (provided and secrets.compare_digest(provided, token)):
+            return JSONResponse({"detail": "Не авторизован"}, status_code=401)
 
     try:
         async with get_session_factory()() as db:

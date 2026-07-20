@@ -275,6 +275,36 @@ async def replace_milestones(
     ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
+    project = (
+        await db.execute(
+            select(Project.id).where(
+                Project.workspace_id == ws.id,
+                Project.id == project_id,
+                Project.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not project:
+        raise HTTPException(404, "Проект не найден")
+
+    owner_ids = {m.owner_member_id for m in body if m.owner_member_id}
+    if owner_ids:
+        valid = set(
+            (
+                await db.execute(
+                    select(Member.id).where(
+                        Member.workspace_id == ws.id,
+                        Member.id.in_(owner_ids),
+                        Member.deleted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if owner_ids - valid:
+            raise HTTPException(422, "Ответственный за веху не найден в команде")
+
     existing = (
         (
             await db.execute(
