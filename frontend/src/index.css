@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "MTS Compact";
+  src: url("/fonts/MTSCompact-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MTS Compact";
+  src: url("/fonts/MTSCompact-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MTS Compact";
+  src: url("/fonts/MTSCompact-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MTS Wide";
+  src: url("/fonts/MTSWide-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MTS Wide";
+  src: url("/fonts/MTSWide-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --page: #f4f5f6;
+  --surface: #ffffff;
+  --ink: #1d2023;
+  --muted: #8a8d8f;
+  --line: #e2e5e8;
+  --accent: #e30611;
+
+  /* шкала загрузки: одна холодная гамма + красный только для перегруза */
+  --load-partial-bg: #d6e2ec;
+  --load-partial-ink: #2d4356;
+  --load-full-bg: #587f9f;
+  --load-full-ink: #ffffff;
+  --load-over-bg: #f3c1c4;
+  --load-over-ink: #8f0710;
+  --cell-off: #ececee;
+  --cell-absent: repeating-linear-gradient(
+    -45deg,
+    transparent 0 4px,
+    rgba(138, 141, 143, 0.28) 4px 6px
+  );
+  --cell-over-hatch: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    rgba(143, 7, 16, 0.25) 5px 7px
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #121315;
+    --surface: #1b1e21;
+    --ink: #f0f1f2;
+    --muted: #8a8d8f;
+    --line: #2c3034;
+    --accent: #ff2f3b;
+
+    --load-partial-bg: #2d4761;
+    --load-partial-ink: #b9cfe2;
+    --load-full-bg: #4d7aa5;
+    --load-full-ink: #ffffff;
+    --load-over-bg: #5c1a20;
+    --load-over-ink: #ffb3b8;
+    --cell-off: #202327;
+    --cell-absent: repeating-linear-gradient(
+      -45deg,
+      transparent 0 4px,
+      rgba(138, 141, 143, 0.25) 4px 6px
+    );
+    --cell-over-hatch: repeating-linear-gradient(
+      -45deg,
+      transparent 0 5px,
+      rgba(255, 179, 184, 0.25) 5px 7px
+    );
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-page text-ink;
+  font-family: "MTS Compact", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+.font-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* сигнатура: линия прилива — волнистая граница факт/план */
+.tideline-edge {
+  position: relative;
+}
+.tideline-edge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* по центру 12px-зазора между неделями (.week-gap) */
+  right: -7.5px;
+  width: 3px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--accent) 0 6px,
+    transparent 6px 10px
+  );
+  opacity: 0.75;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* зазор между неделями: без выходных недели нужно разделять заметнее */
+.week-gap {
+  border-left: 12px solid var(--page) !important;
+}
+
+.cell-focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.cell-selected {
+  box-shadow: inset 0 0 0 999px rgba(227, 6, 17, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  .cell-selected {
+    box-shadow: inset 0 0 0 999px rgba(255, 47, 59, 0.14);
+  }
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* markdown-превью на карточке проекта */
+.md-body :is(h1, h2, h3) {
+  font-weight: 700;
+  margin: 0.7em 0 0.3em;
+}
+.md-body ul {
+  list-style: disc;
+  padding-left: 1.2em;
+  margin: 0.4em 0;
+}
+.md-body a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.md-body p {
+  margin: 0.4em 0;
+}
+.md-body code {
+  background: var(--cell-off);
+  padding: 0 4px;
+  border-radius: 3px;
+}

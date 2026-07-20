@@ -1,0 +1,259 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { api } from "../api/client";
+import { TimelineGrid } from "../components/timeline/TimelineGrid";
+import { useTimelineController } from "../components/timeline/useTimelineController";
+import { AbsencePanel } from "../features/AbsencePanel";
+import { CapacityPanel } from "../features/capacity-search/CapacityPanel";
+import { SharePanel } from "../features/SharePanel";
+import { addDays, currentMonday, rangeLabel } from "../lib/dates";
+import { fmtNum } from "../lib/format";
+
+const HORIZONS = [2, 4, 6];
+
+export function TimelinePage() {
+  const [params, setParams] = useSearchParams();
+  const horizon = Number(params.get("weeks") ?? 2);
+  const from = params.get("from") ?? currentMonday();
+  const to = addDays(from, horizon * 7 - 1);
+  const [capacityOpen, setCapacityOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [absencesOpen, setAbsencesOpen] = useState(false);
+  const [extraRows, setExtraRows] = useState<Record<string, string[]>>({});
+  const queryClient = useQueryClient();
+
+  const { query, setCells, undo, redo, saveState, lastError, refresh } =
+    useTimelineController(from, to);
+
+  const setWindow = (newFrom: string, weeks = horizon) => {
+    setParams(
+      (p) => {
+        p.set("from", newFrom);
+        p.set("weeks", String(weeks));
+        return p;
+      },
+      { replace: true },
+    );
+  };
+
+  const closeWeek = useMutation({
+    mutationFn: (week_start: string) => api.post("/weeks/close", { week_start }),
+    onSuccess: () => refresh(),
+  });
+  const undoClose = useMutation({
+    mutationFn: (week_start: string) =>
+      api.post("/weeks/close/undo", { week_start }),
+    onSuccess: () => refresh(),
+  });
+  const copyWeek = useMutation({
+    mutationFn: (payload: { from_week_start: string; to_week_start: string }) =>
+      api.post("/allocations/copy-week", { ...payload, mode: "merge" }),
+    onSuccess: () => refresh(),
+  });
+
+  const data = query.data;
+  const reminder = data?.week_close_reminder;
+  const closableWeek = useMemo(() => {
+    if (!data) return null;
+    return (
+      data.weeks.find((w) => (w.is_past || w.is_current) && !w.is_closed) ?? null
+    );
+  }, [data]);
+  const undoableWeek = useMemo(
+    () => data?.weeks.find((w) => w.is_closed && w.is_current) ?? null,
+    [data],
+  );
+
+  return (
+    <div className="flex h-full flex-col">
+      {reminder && (
+        <div className="flex items-center gap-3 border-b border-line bg-[var(--load-partial-bg)] px-4 py-1.5 text-xs text-[var(--load-partial-ink)]">
+          <span>
+            Неделя от {rangeLabel(reminder, addDays(reminder, 6))} ещё не закрыта.
+          </span>
+          <button
+            onClick={() => closeWeek.mutate(reminder)}
+            className="font-medium underline"
+          >
+            Закрыть сейчас
+          </button>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setWindow(addDays(from, -7))}
+            className="rounded border border-line px-2 py-1 text-sm hover:bg-page"
+            title="Неделя назад"
+          >
+            ←
+          </button>
+          <button
+            onClick={() => setWindow(currentMonday())}
+            className="rounded border border-line px-2 py-1 text-sm hover:bg-page"
+          >
+            Сегодня
+          </button>
+          <button
+            onClick={() => setWindow(addDays(from, 7))}
+            className="rounded border border-line px-2 py-1 text-sm hover:bg-page"
+            title="Неделя вперёд"
+          >
+            →
+          </button>
+        </div>
+        <span className="font-wide text-sm font-medium">{rangeLabel(from, to)}</span>
+        <div className="flex overflow-hidden rounded border border-line">
+          {HORIZONS.map((h) => (
+            <button
+              key={h}
+              onClick={() => setWindow(from, h)}
+              className={`px-2.5 py-1 text-xs ${
+                h === horizon ? "bg-ink text-surface" : "hover:bg-page"
+              }`}
+            >
+              {h} нед
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => setCapacityOpen((v) => !v)}
+          className="rounded bg-mts px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+        >
+          Хватит ли людей?
+        </button>
+
+        {closableWeek && (
+          <button
+            onClick={() => closeWeek.mutate(closableWeek.week_start)}
+            disabled={closeWeek.isPending}
+            className="rounded border border-line px-3 py-1.5 text-sm hover:bg-page disabled:opacity-50"
+            title="Снимок недели в историю и сдвиг окна"
+          >
+            Закрыть неделю {rangeLabel(closableWeek.week_start, addDays(closableWeek.week_start, 6))}
+          </button>
+        )}
+        {undoableWeek && (
+          <button
+            onClick={() => undoClose.mutate(undoableWeek.week_start)}
+            className="rounded border border-line px-3 py-1.5 text-sm text-muted hover:bg-page"
+            title="Доступно 24 часа после закрытия"
+          >
+            Откатить закрытие
+          </button>
+        )}
+        <button
+          onClick={() =>
+            copyWeek.mutate({ from_week_start: from, to_week_start: addDays(from, 7) })
+          }
+          className="rounded border border-line px-3 py-1.5 text-sm hover:bg-page"
+          title="Продублировать первую неделю окна во вторую"
+        >
+          Копировать нед. 1 → 2
+        </button>
+        <button
+          onClick={() => setAbsencesOpen((v) => !v)}
+          className="rounded border border-line px-3 py-1.5 text-sm hover:bg-page"
+          title="Отпуска, болезни, отгулы — дни выпадают из ёмкости"
+        >
+          Отпуска
+        </button>
+
+        <div className="ml-auto flex items-center gap-2">
+          <span
+            className={`text-xs ${
+              saveState === "error"
+                ? "font-medium text-mts"
+                : saveState === "saving"
+                  ? "text-muted"
+                  : "text-muted/70"
+            }`}
+            title={lastError ?? undefined}
+          >
+            {saveState === "saved" && "Сохранено"}
+            {saveState === "saving" && "Сохранение…"}
+            {saveState === "error" && (lastError ?? "Ошибка сети")}
+          </span>
+          <a
+            href={`/api/v1/export/timeline.xlsx?from=${from}&to=${to}`}
+            className="rounded border border-line px-2 py-1 text-xs hover:bg-page"
+          >
+            XLSX
+          </a>
+          <a
+            href={`/api/v1/export/timeline.csv?from=${from}&to=${to}`}
+            className="rounded border border-line px-2 py-1 text-xs hover:bg-page"
+          >
+            CSV
+          </a>
+          <button
+            onClick={() => setShareOpen((v) => !v)}
+            className="rounded border border-line px-2 py-1 text-xs hover:bg-page"
+          >
+            Поделиться
+          </button>
+        </div>
+      </div>
+
+      {closeWeek.isSuccess && (
+        <div className="border-b border-line bg-surface px-4 py-1 text-xs text-muted">
+          Неделя закрыта, снимок сохранён.{" "}
+          {(closeWeek.data as { diff?: { total_abs_delta?: string } })?.diff
+            ?.total_abs_delta && (
+            <>
+              Расхождение с планом:{" "}
+              {fmtNum(
+                (closeWeek.data as { diff: { total_abs_delta: string } }).diff
+                  .total_abs_delta,
+              )}{" "}
+              дн.
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="relative min-h-0 flex-1 overflow-auto px-4 pb-4 pt-2">
+        {query.isLoading && (
+          <div className="py-16 text-center text-muted">Загрузка таймлайна…</div>
+        )}
+        {query.isError && (
+          <div className="py-16 text-center text-sm text-muted">
+            Не удалось загрузить данные.{" "}
+            <button onClick={() => query.refetch()} className="underline">
+              Повторить
+            </button>
+          </div>
+        )}
+        {data && data.members.length === 0 && (
+          <div className="py-16 text-center text-sm text-muted">
+            В пространстве пока нет сотрудников. Добавьте команду через{" "}
+            <code className="rounded bg-page px-1">make seed</code> или API
+            <code className="rounded bg-page px-1">POST /members</code> — и сетка
+            оживёт.
+          </div>
+        )}
+        {data && data.members.length > 0 && (
+          <TimelineGrid
+            data={data}
+            setCells={setCells}
+            undo={undo}
+            redo={redo}
+            extraRows={extraRows}
+            onAddRow={(memberId, projectId) =>
+              setExtraRows((s) => ({
+                ...s,
+                [memberId]: [...(s[memberId] ?? []), projectId],
+              }))
+            }
+          />
+        )}
+      </div>
+
+      {capacityOpen && <CapacityPanel onClose={() => setCapacityOpen(false)} />}
+      {shareOpen && <SharePanel onClose={() => setShareOpen(false)} />}
+      {absencesOpen && <AbsencePanel onClose={() => setAbsencesOpen(false)} />}
+    </div>
+  );
+}

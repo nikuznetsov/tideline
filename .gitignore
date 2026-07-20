@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+
+node_modules/
+frontend/dist/
+backend/static/
+
+.DS_Store
+
+# дизайн-референсы: исходные архивы шрифтов и брендбук не нужны для сборки
+mts_design/
+MTS_Guide_02_removed.pdf
+.claude/settings.local.json*
