@@ -13,7 +13,7 @@ dockerfilePath = "Dockerfile"
 [deploy]
 # Деплой останавливается, если pre-deploy бэкап не удался: && — жёсткая цепочка.
 # При первом деплое (пустой бакет/БД ещё нет) можно временно задать SKIP_PREDEPLOY_BACKUP=1.
-preDeployCommand = "sh -c 'if [ \"$SKIP_PREDEPLOY_BACKUP\" = \"1\" ]; then echo skip backup; else BACKUP_LABEL=pre-migration-$(python -m alembic heads --resolve-dependencies 2>/dev/null | head -c 12 || echo unknown) python /srv/ops/backup.py; fi && python -m alembic upgrade head'"
+preDeployCommand = "sh -c 'if [ \"$SKIP_PREDEPLOY_BACKUP\" = \"1\" ]; then echo skip backup; else BACKUP_LABEL=pre-migration-$(python -m alembic heads --resolve-dependencies 2>/dev/null | head -c 12 || echo unknown) python /srv/ops/backup.py; fi && python -m alembic upgrade head && if [ \"$SEED_DEMO\" = \"1\" ]; then echo seeding demo data && python -m app.seed; fi'"
 startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 120
