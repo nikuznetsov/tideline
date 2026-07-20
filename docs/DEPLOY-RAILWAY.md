@@ -150,7 +150,10 @@ Records» (вида `in7cjahj.up.railway.app`). Корневой домен за
 Пока стоит `SKIP_PREDEPLOY_BACKUP=1` — бэкапы не делаются. Перед реальной
 эксплуатацией (не демо) настройте по `docs/RESTORE.md`:
 
-1. Заведите S3-совместимый бакет вне Railway (Cloudflare R2 или Backblaze B2).
+1. Заведите S3-совместимый бакет **вне Railway** (у Railway своего S3 нет;
+   MinIO на Railway не годится — то же окружение, что и БД). Варианты:
+   **Selectel Object Storage** (логично, если аккаунт уже там — endpoint
+   покажет панель Object Storage), Cloudflare R2 или Backblaze B2.
 2. Сгенерируйте age-ключи: `age-keygen -o age.key` (публичный → в переменные
    Railway `BACKUP_ENCRYPTION_KEY`, приватный `AGE_SECRET_KEY` — храните в
    отдельном менеджере секретов, **не** рядом с приложением).
