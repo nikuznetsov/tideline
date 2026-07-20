@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { getWorkspaceSlug, wapi } from "../api/client";
+import { CopyButton } from "../components/CopyButton";
 import type { ShareLinkItem } from "../api/types";
 
 export function SharePanel({ onClose }: { onClose: () => void }) {
@@ -49,16 +50,10 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
           <div className="mb-4 rounded border border-line bg-page p-3">
             <div className="mb-1 text-xs font-medium">Новая ссылка</div>
             <div className="break-all font-nums text-xs">{`${window.location.origin}/s/${created.token}`}</div>
-            <button
-              onClick={() =>
-                navigator.clipboard.writeText(
-                  `${window.location.origin}/s/${created.token}`,
-                )
-              }
+            <CopyButton
+              text={`${window.location.origin}/s/${created.token}`}
               className="mt-2 rounded border border-line px-2 py-1 text-xs hover:bg-surface"
-            >
-              Скопировать
-            </button>
+            />
           </div>
         )}
         <div className="space-y-2">

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, ApiError, wapi } from "../api/client";
+import { CopyButton } from "../components/CopyButton";
 import type { Member } from "../api/types";
 import { useWorkspace } from "../workspace";
 
@@ -205,12 +206,10 @@ export function AccessSection() {
                   Новая ссылка — показывается один раз
                 </div>
                 <div className="break-all font-nums text-xs">{createdUrl}</div>
-                <button
-                  onClick={() => navigator.clipboard.writeText(createdUrl)}
+                <CopyButton
+                  text={createdUrl}
                   className="mt-2 rounded border border-line px-2 py-1 text-xs hover:bg-surface"
-                >
-                  Скопировать
-                </button>
+                />
               </div>
             )}
             <div className="mt-3 space-y-1.5">
