@@ -85,6 +85,9 @@ test("S4: read-only ссылка работает и умирает после �
   await expect(viewer.getByRole("button", { name: "Хватит ли людей?" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Отозвать" }).first().click();
+  // отзыв идёт через стилизованный диалог подтверждения
+  await page.getByRole("dialog").getByRole("button", { name: "Отозвать" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await viewer.reload();
   await expect(viewer.getByText("Ссылка не действует")).toBeVisible();
 });
