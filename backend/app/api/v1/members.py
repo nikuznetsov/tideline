@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_workspace
+from app.core.deps import get_current_user, get_workspace, get_workspace_editor
 from app.db.models import Absence, AppUser, Member, Workspace
 from app.db.session import get_db
 from app.schemas import (
@@ -54,7 +54,7 @@ async def list_members(
 async def create_member(
     body: MemberCreate,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     max_order = (
@@ -84,7 +84,7 @@ async def patch_member(
     member_id: uuid.UUID,
     body: MemberPatch,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     member = (
@@ -112,7 +112,7 @@ async def patch_member(
 async def delete_member(
     member_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     member = (
@@ -138,7 +138,7 @@ async def delete_member(
 async def reorder_members(
     body: ReorderRequest,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     _user=Depends(get_current_user),
 ):
     members = (
@@ -184,7 +184,7 @@ async def list_absences(
 async def create_absence(
     body: AbsenceCreate,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     if body.date_to < body.date_from:
@@ -262,7 +262,7 @@ async def create_absence(
 async def delete_absence(
     absence_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     absence = (

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
-import { api, ApiError } from "../api/client";
+import { ApiError, wapi } from "../api/client";
 import type { AbsenceItem, Member, NonWorkingDayItem } from "../api/types";
 import { fromISO, rangeLabel, todayISO } from "../lib/dates";
 
@@ -23,11 +23,11 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
 
   const members = useQuery<Member[]>({
     queryKey: ["members"],
-    queryFn: () => api.get<Member[]>("/members"),
+    queryFn: () => wapi.get<Member[]>("/members"),
   });
   const absences = useQuery<AbsenceItem[]>({
     queryKey: ["absences"],
-    queryFn: () => api.get<AbsenceItem[]>("/absences"),
+    queryFn: () => wapi.get<AbsenceItem[]>("/absences"),
   });
 
   const invalidate = () => {
@@ -43,7 +43,7 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
       kind: string;
       note: string | null;
       clear_allocations?: boolean;
-    }) => api.post("/absences", body),
+    }) => wapi.post("/absences", body),
     onSuccess: () => {
       setError(null);
       setConflict(null);
@@ -66,7 +66,7 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => api.delete(`/absences/${id}`),
+    mutationFn: (id: string) => wapi.delete(`/absences/${id}`),
     onSuccess: invalidate,
   });
 
@@ -263,7 +263,7 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
 
   const days = useQuery<NonWorkingDayItem[]>({
     queryKey: ["non-working-days"],
-    queryFn: () => api.get<NonWorkingDayItem[]>("/non-working-days"),
+    queryFn: () => wapi.get<NonWorkingDayItem[]>("/non-working-days"),
   });
 
   const refresh = () => {
@@ -273,7 +273,7 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
 
   const create = useMutation({
     mutationFn: (body: { day: string; title: string | null }) =>
-      api.post("/non-working-days", body),
+      wapi.post("/non-working-days", body),
     onSuccess: () => {
       setError(null);
       setDay("");
@@ -284,7 +284,7 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
       setError(e instanceof ApiError ? e.message : "Не удалось сохранить"),
   });
   const remove = useMutation({
-    mutationFn: (id: string) => api.delete(`/non-working-days/${id}`),
+    mutationFn: (id: string) => wapi.delete(`/non-working-days/${id}`),
     onSuccess: refresh,
   });
 

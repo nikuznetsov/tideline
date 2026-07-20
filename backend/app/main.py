@@ -6,7 +6,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, text
 
-from app.api.v1 import admin, allocations, auth, calendar, capacity, export, members, projects, share, timeline, weeks
+from fastapi import APIRouter
+
+from app.api.v1 import admin, allocations, auth, calendar, capacity, export, members, projects, share, timeline, weeks, workspaces
 from app.bootstrap import ensure_bootstrap
 from app.core.config import get_settings
 from app.core.observability import (
@@ -42,9 +44,19 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestContextMiddleware)
 
 api = FastAPI(title="xOps Tideline API")
-for router_module in (auth, timeline, allocations, capacity, members, projects, weeks, export, share, admin, calendar):
-    api.include_router(router_module.router)
+# без пространства: аутентификация, список пространств, вступление, публичные срезы
+api.include_router(auth.router)
+api.include_router(workspaces.router)
 api.include_router(share.public_router)
+api.include_router(admin.router)  # /admin/backups — глобальный
+
+# доменные маршруты — только внутри пространства: /api/v1/w/{workspace_slug}/...
+workspace_scoped = APIRouter(prefix="/w/{workspace_slug}")
+for router_module in (timeline, allocations, capacity, members, projects, weeks, export, calendar):
+    workspace_scoped.include_router(router_module.router)
+workspace_scoped.include_router(share.router)
+workspace_scoped.include_router(admin.audit_router)
+api.include_router(workspace_scoped)
 app.mount("/api/v1", api)
 
 

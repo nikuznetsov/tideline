@@ -22,11 +22,63 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RegisterRequest(BaseModel):
+    first_name: str = Field(min_length=1, max_length=60)
+    last_name: str = Field(min_length=1, max_length=60)
+    email: str = Field(min_length=5, max_length=254)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     email: str
     name: str
+
+
+# ---------- workspaces ----------
+
+class WorkspaceOut(BaseModel):
+    id: uuid.UUID
+    slug: str
+    name: str
+    role: str
+    default_member_role: str
+
+
+class WorkspaceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    slug: str = Field(min_length=2, max_length=32)
+
+
+class WorkspacePatch(BaseModel):
+    name: str | None = None
+    default_member_role: str | None = None
+
+
+class ParticipantOut(BaseModel):
+    user_id: uuid.UUID
+    name: str
+    email: str
+    role: str
+
+
+class ParticipantPatch(BaseModel):
+    role: str
+
+
+class InviteLinkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    token_prefix: str
+    revoked_at: datetime | None
+    created_at: datetime
+    last_used_at: datetime | None
+
+
+class InviteLinkCreated(InviteLinkOut):
+    token: str = ""
+    url: str = ""
 
 
 # ---------- members ----------

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { api } from "../../api/client";
+import { wapi } from "../../api/client";
 import type { TimelineResponse } from "../../api/types";
 
 /** Мутация одной ячейки: load=null — очистить. */
@@ -133,7 +133,7 @@ export function useTimelineController(from: string, to: string) {
 
   const query = useQuery<TimelineResponse>({
     queryKey: timelineKey(from, to),
-    queryFn: () => api.get<TimelineResponse>(`/timeline?from=${from}&to=${to}`),
+    queryFn: () => wapi.get<TimelineResponse>(`/timeline?from=${from}&to=${to}`),
   });
 
   const mutation = useMutation({
@@ -145,7 +145,7 @@ export function useTimelineController(from: string, to: string) {
         date_to: c.day,
         load: c.load,
       }));
-      return api.post("/allocations/bulk", { items });
+      return wapi.post("/allocations/bulk", { items });
     },
     onMutate: () => {
       pending.current += 1;

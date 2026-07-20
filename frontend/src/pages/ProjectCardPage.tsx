@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api/client";
+import { wapi } from "../api/client";
 import type { ProjectDetail, ProjectLoad } from "../api/types";
 import { addDays, currentMonday, rangeLabel } from "../lib/dates";
 import { AuditHistory } from "../features/AuditHistory";
 import { fmtNum } from "../lib/format";
 import { Markdown } from "../lib/markdown";
+import { useWorkspace } from "../workspace";
 
 const HEALTH: Record<string, string> = { green: "🟢", amber: "🟡", red: "🔴" };
 const HEALTH_LABEL: Record<string, string> = {
@@ -33,25 +34,26 @@ const CONTENT_FIELDS: [keyof ProjectDetail, string, string][] = [
 
 export function ProjectCardPage() {
   const { id } = useParams<{ id: string }>();
+  const { canEdit, wsPath } = useWorkspace();
   const queryClient = useQueryClient();
   const from = currentMonday();
   const to = addDays(from, 13);
 
   const project = useQuery<ProjectDetail>({
     queryKey: ["project", id],
-    queryFn: () => api.get<ProjectDetail>(`/projects/${id}`),
+    queryFn: () => wapi.get<ProjectDetail>(`/projects/${id}`),
   });
   const load = useQuery<ProjectLoad>({
     queryKey: ["project-load", id, from],
-    queryFn: () => api.get<ProjectLoad>(`/projects/${id}/load?from=${from}&to=${to}`),
+    queryFn: () => wapi.get<ProjectLoad>(`/projects/${id}/load?from=${from}&to=${to}`),
   });
   const patch = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api.patch(`/projects/${id}`, body),
+    mutationFn: (body: Record<string, unknown>) => wapi.patch(`/projects/${id}`, body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", id] }),
   });
   const addUpdate = useMutation({
     mutationFn: (body: { body: string; health_after: string | null }) =>
-      api.post(`/projects/${id}/updates`, body),
+      wapi.post(`/projects/${id}/updates`, body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", id] }),
   });
 
@@ -65,7 +67,7 @@ export function ProjectCardPage() {
   if (!project.data)
     return (
       <p className="py-10 text-center text-sm text-muted">
-        Проект не найден. <Link to="/projects" className="underline">К реестру</Link>
+        Проект не найден. <Link to="../projects" className="underline">К реестру</Link>
       </p>
     );
   const p = project.data;
@@ -81,7 +83,7 @@ export function ProjectCardPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-4">
       <div className="mb-1 text-xs text-muted">
-        <Link to="/projects" className="underline">Проекты</Link> / {p.code}
+        <Link to={wsPath("/projects")} className="underline">Проекты</Link> / {p.code}
       </div>
 
       {/* ---- верх: живой статус ---- */}
@@ -91,6 +93,7 @@ export function ProjectCardPage() {
             {p.code} · {p.name}
           </h1>
           <select
+            disabled={!canEdit}
             value={p.health}
             onChange={(e) => patch.mutate({ health: e.target.value })}
             className="rounded border border-line bg-page px-1.5 py-1 text-sm"
@@ -103,6 +106,7 @@ export function ProjectCardPage() {
             ))}
           </select>
           <select
+            disabled={!canEdit}
             value={p.lifecycle}
             onChange={(e) => patch.mutate({ lifecycle: e.target.value })}
             className="rounded border border-line bg-page px-1.5 py-1 text-sm"
@@ -150,6 +154,7 @@ export function ProjectCardPage() {
 
         {/* лог апдейтов */}
         <div className="mt-4">
+          {canEdit && (
           <form onSubmit={submitUpdate} className="mb-3 flex gap-2">
             <input
               value={updateText}
@@ -172,6 +177,7 @@ export function ProjectCardPage() {
               Записать
             </button>
           </form>
+          )}
           <div className="space-y-2">
             {p.updates.map((u) => (
               <div key={u.id} className="flex gap-3 text-sm">
@@ -205,6 +211,7 @@ export function ProjectCardPage() {
                   {label}
                 </span>
                 {!isEditing ? (
+                  canEdit && (
                   <button
                     onClick={() => {
                       setEditField(field);
@@ -214,6 +221,7 @@ export function ProjectCardPage() {
                   >
                     править
                   </button>
+                  )
                 ) : (
                   <div className="flex gap-2">
                     <button
@@ -246,7 +254,7 @@ export function ProjectCardPage() {
               ) : value ? (
                 <Markdown text={value} />
               ) : (
-                <p className="text-xs text-muted">{hint} — нажмите «править».</p>
+                <p className="text-xs text-muted">{hint}{canEdit ? " — нажмите «править»." : ""}</p>
               )}
             </div>
           );

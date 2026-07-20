@@ -47,6 +47,27 @@ test("S3: закрытие недели создаёт снимок и отка�
   await expect(page.getByRole("button", { name: /Закрыть неделю/ })).toBeVisible();
 });
 
+test("Итерация 2: регистрация, своё пространство, роль по умолчанию", async ({ page, context }) => {
+  // лендинг доступен без логина
+  await page.goto("/");
+  await expect(page.getByText("Кто чем занят")).toBeVisible();
+
+  // регистрация нового аккаунта
+  await page.getByRole("link", { name: "Создать" }).click();
+  await page.getByLabel(/Имя/).first().fill("Ева");
+  await page.getByLabel(/Фамилия/).fill("Тестова");
+  await page.fill("input[type=email]", `eva-${Date.now()}@example.com`);
+  await page.fill("input[type=password]", "password-123");
+  await page.getByRole("button", { name: "Создать аккаунт" }).click();
+
+  // доступов нет — страница пространств с формой создания
+  await expect(page.getByText("У вас пока нет доступов")).toBeVisible();
+  await page.getByPlaceholder("Команда ML-платформы").fill("Тестовая команда");
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
+  await expect(page).toHaveURL(/\/w\/testovaya-komanda\//);
+  await expect(page.getByText("В пространстве пока нет сотрудников")).toBeVisible();
+});
+
 test("S4: read-only ссылка работает и умирает после отзыва", async ({ page, context }) => {
   await login(page);
   await page.getByRole("button", { name: "Поделиться" }).click();

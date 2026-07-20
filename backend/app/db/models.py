@@ -56,6 +56,15 @@ class Workspace(Base, TimestampMixin):
     default_horizon_weeks: Mapped[int] = mapped_column(
         SmallInteger, default=2, nullable=False
     )
+    # роль, которую получает вошедший по инвайт-ссылке
+    default_member_role: Mapped[str] = mapped_column(
+        Text,
+        CheckConstraint(
+            "default_member_role in ('viewer','editor')", name="ck_ws_default_role"
+        ),
+        default="viewer",
+        nullable=False,
+    )
 
 
 class AppUser(Base):
@@ -321,6 +330,29 @@ class ShareLink(Base):
         DateTime(timezone=True), default=utcnow, nullable=False
     )
     last_accessed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class InviteLink(Base):
+    __tablename__ = "invite_link"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("workspace.id"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    token_prefix: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("app_user.id"), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

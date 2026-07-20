@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_workspace
+from app.core.deps import get_current_user, get_workspace, get_workspace_editor
 from app.db.models import AppUser, NonWorkingDay, Workspace
 from app.db.session import get_db
 from app.domain.calendar import is_weekend
@@ -37,7 +37,7 @@ async def list_non_working_days(
 async def create_non_working_day(
     body: NonWorkingDayCreate,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     if is_weekend(body.day):
@@ -66,7 +66,7 @@ async def create_non_working_day(
 async def delete_non_working_day(
     nwd_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     nwd = (

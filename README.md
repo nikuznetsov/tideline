@@ -21,7 +21,10 @@ make frontend              # Vite на :5173 (проксирует /api)
 ```
 
 Логин — `ADMIN_EMAIL` / `ADMIN_PASSWORD` из env (по умолчанию
-`admin@example.com` / `admin`).
+`admin@example.com` / `admin`). Незалогиненных встречает лендинг: можно создать
+аккаунт (имя, фамилия, email, пароль) — без доступов, но со своим пространством.
+Доменное API живёт под `/api/v1/w/{slug}/…`; роли: owner / editor / viewer,
+вступление по инвайт-ссылке `/join/{token}` с ролью по умолчанию.
 
 Прод-режим одним процессом: `make build && make backend` — FastAPI отдаст
 собранную статику сам.

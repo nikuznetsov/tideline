@@ -47,3 +47,29 @@ export const api = {
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
+
+// ---------- пространство ----------
+
+let currentSlug = "";
+
+export function setWorkspaceSlug(slug: string) {
+  currentSlug = slug;
+}
+
+export function getWorkspaceSlug(): string {
+  return currentSlug;
+}
+
+/** Абсолютный URL внутри текущего пространства — для <a href> (экспорт). */
+export function workspaceUrl(path: string): string {
+  return `${BASE}/w/${currentSlug}${path}`;
+}
+
+/** Клиент доменного API текущего пространства: /api/v1/w/{slug}/... */
+export const wapi = {
+  get: <T>(path: string) => api.get<T>(`/w/${currentSlug}${path}`),
+  post: <T>(path: string, body?: unknown) => api.post<T>(`/w/${currentSlug}${path}`, body),
+  patch: <T>(path: string, body: unknown) => api.patch<T>(`/w/${currentSlug}${path}`, body),
+  put: <T>(path: string, body: unknown) => api.put<T>(`/w/${currentSlug}${path}`, body),
+  delete: <T>(path: string) => api.delete<T>(`/w/${currentSlug}${path}`),
+};

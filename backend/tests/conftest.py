@@ -72,7 +72,7 @@ async def other_workspace(db):
 
 
 @pytest_asyncio.fixture
-async def client(engine, workspace):
+async def transport(engine, workspace):
     from app.core.rate_limit import login_limiter, share_limiter
 
     login_limiter._hits.clear()
@@ -85,11 +85,22 @@ async def client(engine, workspace):
 
     app.dependency_overrides[get_db] = override_get_db
     api.dependency_overrides[get_db] = override_get_db
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
+    yield ASGITransport(app=app)
     app.dependency_overrides.clear()
     api.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def client(transport):
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+
+
+@pytest_asyncio.fixture
+async def client2(transport):
+    """Второй клиент с независимыми cookie — для сценариев с двумя пользователями."""
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
 
 
 @pytest_asyncio.fixture

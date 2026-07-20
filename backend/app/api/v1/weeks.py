@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_workspace
+from app.core.deps import get_current_user, get_workspace, get_workspace_editor
 from app.db.models import AppUser, Workspace
 from app.db.session import get_db
 from app.domain.accuracy import accuracy_report
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/weeks", tags=["weeks"])
 async def close(
     body: CloseWeekRequest,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     try:
@@ -33,7 +33,7 @@ async def close(
 async def undo(
     body: CloseWeekRequest,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     try:

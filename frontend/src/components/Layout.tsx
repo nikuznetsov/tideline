@@ -3,23 +3,32 @@ import { ReactNode, useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { User } from "../api/types";
+import { useWorkspace } from "../workspace";
 import { HotkeysHelp } from "./HotkeysHelp";
-
-const nav = [
-  { to: "/", label: "Таймлайн" },
-  { to: "/projects", label: "Проекты" },
-  { to: "/team", label: "Команда" },
-  { to: "/accuracy", label: "Точность" },
-];
 
 export function Layout({ user, children }: { user: User; children: ReactNode }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { current, workspaces, isOwner, wsPath } = useWorkspace();
+
+  const nav = [
+    { to: wsPath("/"), label: "Таймлайн", end: true },
+    { to: wsPath("/projects"), label: "Проекты", end: false },
+    { to: wsPath("/team"), label: "Команда", end: false },
+    { to: wsPath("/accuracy"), label: "Точность", end: false },
+    ...(isOwner
+      ? [{ to: wsPath("/participants"), label: "Участники", end: false }]
+      : []),
+  ];
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "?" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+      if (
+        e.key === "?" &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement)
+      ) {
         e.preventDefault();
         setHelpOpen((v) => !v);
       }
@@ -37,19 +46,38 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-6 border-b border-line bg-surface px-4 py-2">
+      <header className="flex items-center gap-4 border-b border-line bg-surface px-4 py-2">
         <Link to="/" className="flex items-baseline gap-2">
           <span className="font-wide text-sm font-bold uppercase tracking-wide">
             xOps
           </span>
           <span className="font-wide text-sm font-medium text-mts">Tideline</span>
         </Link>
+
+        {/* переключатель пространств */}
+        <select
+          value={current.slug}
+          onChange={(e) => {
+            if (e.target.value === "__all__") navigate("/workspaces");
+            else navigate(`/w/${e.target.value}/`);
+          }}
+          className="max-w-44 truncate rounded border border-line bg-page px-2 py-1 text-xs"
+          title="Пространство"
+        >
+          {workspaces.map((w) => (
+            <option key={w.id} value={w.slug}>
+              {w.name}
+            </option>
+          ))}
+          <option value="__all__">Все пространства…</option>
+        </select>
+
         <nav className="flex gap-1">
           {nav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/"}
+              end={item.end}
               className={({ isActive }) =>
                 `rounded px-3 py-1.5 text-sm ${
                   isActive
@@ -70,7 +98,7 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
           >
             ?
           </button>
-          <span className="text-xs text-muted">{user.email}</span>
+          <span className="hidden text-xs text-muted sm:inline">{user.email}</span>
           <button
             onClick={logout}
             className="text-xs text-muted underline hover:text-ink"

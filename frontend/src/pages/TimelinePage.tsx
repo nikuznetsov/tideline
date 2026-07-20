@@ -1,13 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
+import { Link, useSearchParams } from "react-router-dom";
+import { wapi, workspaceUrl } from "../api/client";
 import { TimelineGrid } from "../components/timeline/TimelineGrid";
 import { useTimelineController } from "../components/timeline/useTimelineController";
 import { AbsencePanel } from "../features/AbsencePanel";
 import { CapacityPanel } from "../features/capacity-search/CapacityPanel";
 import { SharePanel } from "../features/SharePanel";
 import { addDays, currentMonday, rangeLabel } from "../lib/dates";
+import { useWorkspace } from "../workspace";
 import { fmtNum } from "../lib/format";
 
 const HORIZONS = [2, 4, 6];
@@ -17,6 +18,7 @@ export function TimelinePage() {
   const horizon = Number(params.get("weeks") ?? 2);
   const from = params.get("from") ?? currentMonday();
   const to = addDays(from, horizon * 7 - 1);
+  const { canEdit, isOwner, wsPath } = useWorkspace();
   const [capacityOpen, setCapacityOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [absencesOpen, setAbsencesOpen] = useState(false);
@@ -38,17 +40,17 @@ export function TimelinePage() {
   };
 
   const closeWeek = useMutation({
-    mutationFn: (week_start: string) => api.post("/weeks/close", { week_start }),
+    mutationFn: (week_start: string) => wapi.post("/weeks/close", { week_start }),
     onSuccess: () => refresh(),
   });
   const undoClose = useMutation({
     mutationFn: (week_start: string) =>
-      api.post("/weeks/close/undo", { week_start }),
+      wapi.post("/weeks/close/undo", { week_start }),
     onSuccess: () => refresh(),
   });
   const copyWeek = useMutation({
     mutationFn: (payload: { from_week_start: string; to_week_start: string }) =>
-      api.post("/allocations/copy-week", { ...payload, mode: "merge" }),
+      wapi.post("/allocations/copy-week", { ...payload, mode: "merge" }),
     onSuccess: () => refresh(),
   });
 
@@ -72,12 +74,14 @@ export function TimelinePage() {
           <span>
             Неделя от {rangeLabel(reminder, addDays(reminder, 6))} ещё не закрыта.
           </span>
-          <button
-            onClick={() => closeWeek.mutate(reminder)}
-            className="font-medium underline"
-          >
-            Закрыть сейчас
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => closeWeek.mutate(reminder)}
+              className="font-medium underline"
+            >
+              Закрыть сейчас
+            </button>
+          )}
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2">
@@ -125,7 +129,7 @@ export function TimelinePage() {
           Хватит ли людей?
         </button>
 
-        {closableWeek && (
+        {canEdit && closableWeek && (
           <button
             onClick={() => closeWeek.mutate(closableWeek.week_start)}
             disabled={closeWeek.isPending}
@@ -135,7 +139,7 @@ export function TimelinePage() {
             Закрыть неделю {rangeLabel(closableWeek.week_start, addDays(closableWeek.week_start, 6))}
           </button>
         )}
-        {undoableWeek && (
+        {canEdit && undoableWeek && (
           <button
             onClick={() => undoClose.mutate(undoableWeek.week_start)}
             className="rounded border border-line px-3 py-1.5 text-sm text-muted hover:bg-page"
@@ -144,6 +148,7 @@ export function TimelinePage() {
             Откатить закрытие
           </button>
         )}
+        {canEdit && (
         <button
           onClick={() =>
             copyWeek.mutate({ from_week_start: from, to_week_start: addDays(from, 7) })
@@ -153,6 +158,8 @@ export function TimelinePage() {
         >
           Копировать нед. 1 → 2
         </button>
+        )}
+        {canEdit && (
         <button
           onClick={() => setAbsencesOpen((v) => !v)}
           className="rounded border border-line px-3 py-1.5 text-sm hover:bg-page"
@@ -160,8 +167,10 @@ export function TimelinePage() {
         >
           Отпуска
         </button>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
+          {canEdit && (
           <span
             className={`text-xs ${
               saveState === "error"
@@ -176,24 +185,27 @@ export function TimelinePage() {
             {saveState === "saving" && "Сохранение…"}
             {saveState === "error" && (lastError ?? "Ошибка сети")}
           </span>
+          )}
           <a
-            href={`/api/v1/export/timeline.xlsx?from=${from}&to=${to}`}
+            href={workspaceUrl(`/export/timeline.xlsx?from=${from}&to=${to}`)}
             className="rounded border border-line px-2 py-1 text-xs hover:bg-page"
           >
             XLSX
           </a>
           <a
-            href={`/api/v1/export/timeline.csv?from=${from}&to=${to}`}
+            href={workspaceUrl(`/export/timeline.csv?from=${from}&to=${to}`)}
             className="rounded border border-line px-2 py-1 text-xs hover:bg-page"
           >
             CSV
           </a>
+          {isOwner && (
           <button
             onClick={() => setShareOpen((v) => !v)}
             className="rounded border border-line px-2 py-1 text-xs hover:bg-page"
           >
             Поделиться
           </button>
+          )}
         </div>
       </div>
 
@@ -228,10 +240,18 @@ export function TimelinePage() {
         )}
         {data && data.members.length === 0 && (
           <div className="py-16 text-center text-sm text-muted">
-            В пространстве пока нет сотрудников. Добавьте команду через{" "}
-            <code className="rounded bg-page px-1">make seed</code> или API
-            <code className="rounded bg-page px-1">POST /members</code> — и сетка
-            оживёт.
+            В пространстве пока нет сотрудников.{" "}
+            {canEdit ? (
+              <>
+                Добавьте команду на вкладке{" "}
+                <Link to={wsPath("/team")} className="text-mts underline">
+                  Команда
+                </Link>{" "}
+                — и сетка оживёт.
+              </>
+            ) : (
+              "Попросите редактора добавить команду."
+            )}
           </div>
         )}
         {data && data.members.length > 0 && (
@@ -240,6 +260,7 @@ export function TimelinePage() {
             setCells={setCells}
             undo={undo}
             redo={redo}
+            readOnly={!canEdit}
             extraRows={extraRows}
             onAddRow={(memberId, projectId) =>
               setExtraRows((s) => ({

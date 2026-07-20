@@ -13,7 +13,7 @@ async def test_login_wrong_password(client, workspace):
 
 async def test_timeline_requires_auth(client, workspace, monday):
     resp = await client.get(
-        f"/api/v1/timeline?from={monday}&to={monday + timedelta(days=13)}"
+        f"/api/v1/w/xops/timeline?from={monday}&to={monday + timedelta(days=13)}"
     )
     assert resp.status_code == 401
 
@@ -22,7 +22,7 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
     member = team["members"][0]
     project = team["project"]
     resp = await auth_client.post(
-        "/api/v1/allocations",
+        "/api/v1/w/xops/allocations",
         json={
             "member_id": str(member.id),
             "project_id": str(project.id),
@@ -35,7 +35,7 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
 
     # тот же (member, project, day) — апсерт, не дубль
     resp = await auth_client.post(
-        "/api/v1/allocations",
+        "/api/v1/w/xops/allocations",
         json={
             "member_id": str(member.id),
             "project_id": str(project.id),
@@ -48,7 +48,7 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
     assert Decimal(resp.json()["load"]) == Decimal("0.75")
 
     resp = await auth_client.get(
-        f"/api/v1/timeline?from={monday}&to={monday + timedelta(days=13)}"
+        f"/api/v1/w/xops/timeline?from={monday}&to={monday + timedelta(days=13)}"
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -57,14 +57,14 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
     assert data["day_totals"]
     assert len(data["weeks"]) == 2
 
-    resp = await auth_client.delete(f"/api/v1/allocations/{alloc_id}")
+    resp = await auth_client.delete(f"/api/v1/w/xops/allocations/{alloc_id}")
     assert resp.status_code == 200
 
 
 async def test_allocation_rejects_weekend(auth_client, team, monday):
     saturday = monday + timedelta(days=5)
     resp = await auth_client.post(
-        "/api/v1/allocations",
+        "/api/v1/w/xops/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
@@ -77,7 +77,7 @@ async def test_allocation_rejects_weekend(auth_client, team, monday):
 
 async def test_allocation_rejects_finished_project(auth_client, team, monday):
     resp = await auth_client.post(
-        "/api/v1/allocations",
+        "/api/v1/w/xops/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["finished"].id),
@@ -91,7 +91,7 @@ async def test_allocation_rejects_finished_project(auth_client, team, monday):
 async def test_allocation_rejects_absence_day(auth_client, team, monday):
     member = team["members"][0]
     resp = await auth_client.post(
-        "/api/v1/absences",
+        "/api/v1/w/xops/absences",
         json={
             "member_id": str(member.id),
             "date_from": monday.isoformat(),
@@ -101,7 +101,7 @@ async def test_allocation_rejects_absence_day(auth_client, team, monday):
     )
     assert resp.status_code == 200
     resp = await auth_client.post(
-        "/api/v1/allocations",
+        "/api/v1/w/xops/allocations",
         json={
             "member_id": str(member.id),
             "project_id": str(team["project"].id),
@@ -116,7 +116,7 @@ async def test_allocation_rejects_absence_day(auth_client, team, monday):
 async def test_absence_over_allocations_requires_confirmation(auth_client, team, monday):
     member = team["members"][0]
     await auth_client.post(
-        "/api/v1/allocations",
+        "/api/v1/w/xops/allocations",
         json={
             "member_id": str(member.id),
             "project_id": str(team["project"].id),
@@ -130,24 +130,24 @@ async def test_absence_over_allocations_requires_confirmation(auth_client, team,
         "date_to": monday.isoformat(),
         "kind": "vacation",
     }
-    resp = await auth_client.post("/api/v1/absences", json=payload)
+    resp = await auth_client.post("/api/v1/w/xops/absences", json=payload)
     assert resp.status_code == 409
     assert resp.json()["detail"]["code"] == "allocations_exist"
     assert resp.json()["detail"]["days"] == 1
 
     resp = await auth_client.post(
-        "/api/v1/absences", json=payload | {"clear_allocations": True}
+        "/api/v1/w/xops/absences", json=payload | {"clear_allocations": True}
     )
     assert resp.status_code == 200
     # аллокации в диапазоне удалены
     from_iso, to_iso = monday.isoformat(), monday.isoformat()
-    timeline = await auth_client.get(f"/api/v1/timeline?from={from_iso}&to={to_iso}")
+    timeline = await auth_client.get(f"/api/v1/w/xops/timeline?from={from_iso}&to={to_iso}")
     assert timeline.json()["allocations"] == []
 
 
 async def test_bulk_fill_skips_weekend(auth_client, team, monday):
     resp = await auth_client.post(
-        "/api/v1/allocations/bulk",
+        "/api/v1/w/xops/allocations/bulk",
         json={
             "items": [
                 {
@@ -166,7 +166,7 @@ async def test_bulk_fill_skips_weekend(auth_client, team, monday):
 
 async def test_copy_week(auth_client, team, monday):
     await auth_client.post(
-        "/api/v1/allocations",
+        "/api/v1/w/xops/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
@@ -175,7 +175,7 @@ async def test_copy_week(auth_client, team, monday):
         },
     )
     resp = await auth_client.post(
-        "/api/v1/allocations/copy-week",
+        "/api/v1/w/xops/allocations/copy-week",
         json={
             "from_week_start": monday.isoformat(),
             "to_week_start": (monday + timedelta(days=7)).isoformat(),
@@ -188,7 +188,7 @@ async def test_copy_week(auth_client, team, monday):
 
 async def test_capacity_search_endpoint(auth_client, team, monday):
     resp = await auth_client.get(
-        "/api/v1/capacity/search",
+        "/api/v1/w/xops/capacity/search",
         params={
             "from": monday.isoformat(),
             "to": (monday + timedelta(days=4)).isoformat(),
@@ -203,22 +203,22 @@ async def test_capacity_search_endpoint(auth_client, team, monday):
 
 
 async def test_project_registry_and_card(auth_client, team):
-    resp = await auth_client.get("/api/v1/projects")
+    resp = await auth_client.get("/api/v1/w/xops/projects")
     assert resp.status_code == 200
     codes = [p["code"] for p in resp.json()]
     assert "TEST" in codes
     assert "OLD" not in codes  # завершённые скрыты по умолчанию
 
-    resp = await auth_client.get("/api/v1/projects", params={"include_finished": "true"})
+    resp = await auth_client.get("/api/v1/w/xops/projects", params={"include_finished": "true"})
     assert "OLD" in [p["code"] for p in resp.json()]
 
     project_id = [p for p in resp.json() if p["code"] == "TEST"][0]["id"]
     resp = await auth_client.post(
-        f"/api/v1/projects/{project_id}/updates",
+        f"/api/v1/w/xops/projects/{project_id}/updates",
         json={"body": "Новый апдейт", "health_after": "amber"},
     )
     assert resp.status_code == 200
-    resp = await auth_client.get(f"/api/v1/projects/{project_id}")
+    resp = await auth_client.get(f"/api/v1/w/xops/projects/{project_id}")
     detail = resp.json()
     assert detail["health"] == "amber"
     assert detail["updates"][0]["body"] == "Новый апдейт"
@@ -226,7 +226,7 @@ async def test_project_registry_and_card(auth_client, team):
 
 async def test_week_close_endpoint(auth_client, team, monday):
     await auth_client.post(
-        "/api/v1/allocations",
+        "/api/v1/w/xops/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
@@ -235,32 +235,32 @@ async def test_week_close_endpoint(auth_client, team, monday):
         },
     )
     resp = await auth_client.post(
-        "/api/v1/weeks/close", json={"week_start": monday.isoformat()}
+        "/api/v1/w/xops/weeks/close", json={"week_start": monday.isoformat()}
     )
     assert resp.status_code == 200
     resp = await auth_client.post(
-        "/api/v1/weeks/close", json={"week_start": monday.isoformat()}
+        "/api/v1/w/xops/weeks/close", json={"week_start": monday.isoformat()}
     )
     assert resp.status_code == 422
     resp = await auth_client.post(
-        "/api/v1/weeks/close/undo", json={"week_start": monday.isoformat()}
+        "/api/v1/w/xops/weeks/close/undo", json={"week_start": monday.isoformat()}
     )
     assert resp.status_code == 200
 
 
 async def test_export_xlsx(auth_client, team, monday):
     resp = await auth_client.get(
-        "/api/v1/export/timeline.xlsx",
+        "/api/v1/w/xops/export/timeline.xlsx",
         params={"from": monday.isoformat(), "to": (monday + timedelta(days=13)).isoformat()},
     )
     assert resp.status_code == 200
     assert resp.content[:2] == b"PK"  # zip-контейнер xlsx
-    resp = await auth_client.get("/api/v1/export/projects.xlsx")
+    resp = await auth_client.get("/api/v1/w/xops/export/projects.xlsx")
     assert resp.status_code == 200
 
 
 async def test_share_link_lifecycle(auth_client, client, team, monday):
-    resp = await auth_client.post("/api/v1/share-links", json={})
+    resp = await auth_client.post("/api/v1/w/xops/share-links", json={})
     assert resp.status_code == 200
     token = resp.json()["token"]
     link_id = resp.json()["id"]
@@ -277,7 +277,7 @@ async def test_share_link_lifecycle(auth_client, client, team, monday):
         assert "links_md" not in resp.json()[0]
         assert "goal" not in resp.json()[0]
 
-    resp = await auth_client.delete(f"/api/v1/share-links/{link_id}")
+    resp = await auth_client.delete(f"/api/v1/w/xops/share-links/{link_id}")
     assert resp.status_code == 200
     resp = await client.get(f"/api/v1/s/{token}/timeline")
     assert resp.status_code == 404

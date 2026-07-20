@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_workspace
+from app.core.deps import get_current_user, get_workspace, get_workspace_editor
 from app.db.models import (
     Allocation,
     AppUser,
@@ -86,7 +86,7 @@ async def list_projects(
 async def create_project(
     body: ProjectCreate,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     dup = (
@@ -171,7 +171,7 @@ async def patch_project(
     project_id: uuid.UUID,
     body: ProjectPatch,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     project = (
@@ -209,7 +209,7 @@ def _jsonable(v):
 async def delete_project(
     project_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     project = (
@@ -235,7 +235,7 @@ async def add_update(
     project_id: uuid.UUID,
     body: ProjectUpdateIn,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     project = (
@@ -272,7 +272,7 @@ async def replace_milestones(
     project_id: uuid.UUID,
     body: list[MilestoneIn],
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     existing = (

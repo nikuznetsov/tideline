@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { Link } from "react-router-dom";
+import { useWorkspaceMaybe } from "../../workspace";
 import type { TimelineProject, TimelineResponse } from "../../api/types";
 import { dayLabel, isWeekendISO } from "../../lib/dates";
 import { fmtLoad, fmtNum } from "../../lib/format";
@@ -45,6 +46,7 @@ export function TimelineGrid({
   onAddRow,
   readOnly = false,
 }: Props) {
+  const wsCtx = useWorkspaceMaybe();
   // выходные не показываем: планирование идёт только по будням
   const visibleTotals = useMemo(
     () => data.day_totals.filter((t) => !isWeekendISO(t.day)),
@@ -497,13 +499,13 @@ export function TimelineGrid({
                           needScroll ? "sticky left-0 z-10 bg-page" : ""
                         }`}
                       >
-                        {readOnly ? (
+                        {readOnly || !wsCtx ? (
                           <span className="truncate" title={projectsById.get(row.projectId)?.name}>
                             {row.projectCode}
                           </span>
                         ) : (
                           <Link
-                            to={`/projects/${row.projectId}`}
+                            to={wsCtx!.wsPath(`/projects/${row.projectId}`)}
                             title={`${projectsById.get(row.projectId)?.name ?? ""} — открыть карточку`}
                             className="truncate hover:text-mts hover:underline"
                             onMouseDown={(e) => e.stopPropagation()}

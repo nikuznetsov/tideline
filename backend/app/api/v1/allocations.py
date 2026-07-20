@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_workspace
+from app.core.deps import get_current_user, get_workspace, get_workspace_editor
 from app.db.models import (
     Absence,
     Allocation,
@@ -87,7 +87,7 @@ async def _validate_project_active(db: AsyncSession, ws_id: uuid.UUID, project_i
 async def create_allocation(
     body: AllocationCreate,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     await _validate_project_active(db, ws.id, body.project_id)
@@ -130,7 +130,7 @@ async def create_allocation(
 async def bulk_allocations(
     body: AllocationBulkRequest,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     """Drag-fill / выделение диапазона: массовое проставление или очистка."""
@@ -221,7 +221,7 @@ async def patch_allocation(
     allocation_id: uuid.UUID,
     body: AllocationPatch,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     alloc = (
@@ -252,7 +252,7 @@ async def patch_allocation(
 async def delete_allocation(
     allocation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     alloc = (
@@ -274,7 +274,7 @@ async def delete_allocation(
 async def copy_week(
     body: CopyWeekRequest,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
     """Продублировать неделю: mode=replace стирает целевую, merge — дополняет."""

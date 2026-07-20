@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.deps import get_current_user, get_share_workspace, get_workspace
+from app.core.deps import get_current_user, get_share_workspace, get_workspace, get_workspace_owner
 from app.core.rate_limit import enforce, share_limiter
 from app.core.security import generate_share_token, hash_share_token
 from app.db.models import AppUser, Project, ShareLink, Workspace
@@ -27,7 +27,7 @@ router = APIRouter(tags=["share"])
 @router.get("/share-links", response_model=list[ShareLinkOut])
 async def list_share_links(
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_owner),
     _user=Depends(get_current_user),
 ):
     return (
@@ -47,7 +47,7 @@ async def list_share_links(
 async def create_share_link(
     body: ShareLinkCreate,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_owner),
     user: AppUser = Depends(get_current_user),
 ):
     token = generate_share_token()
@@ -72,7 +72,7 @@ async def create_share_link(
 async def revoke_share_link(
     link_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_owner),
     user: AppUser = Depends(get_current_user),
 ):
     from datetime import datetime, timezone

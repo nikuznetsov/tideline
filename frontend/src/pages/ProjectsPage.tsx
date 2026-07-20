@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api/client";
+import { wapi, workspaceUrl } from "../api/client";
 import type { ProjectListItem } from "../api/types";
+import { useWorkspace } from "../workspace";
 
 const HEALTH: Record<string, string> = { green: "🟢", amber: "🟡", red: "🔴" };
 const LIFECYCLE: Record<string, string> = {
@@ -12,6 +13,7 @@ const LIFECYCLE: Record<string, string> = {
 };
 
 export function ProjectsPage() {
+  const { canEdit, wsPath } = useWorkspace();
   const [showFinished, setShowFinished] = useState(false);
   const [creating, setCreating] = useState(false);
   const queryClient = useQueryClient();
@@ -19,12 +21,12 @@ export function ProjectsPage() {
   const projects = useQuery<ProjectListItem[]>({
     queryKey: ["projects", showFinished],
     queryFn: () =>
-      api.get<ProjectListItem[]>(`/projects?include_finished=${showFinished}`),
+      wapi.get<ProjectListItem[]>(`/projects?include_finished=${showFinished}`),
   });
 
   const create = useMutation({
     mutationFn: (body: { code: string; name: string }) =>
-      api.post("/projects", body),
+      wapi.post("/projects", body),
     onSuccess: () => {
       setCreating(false);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -56,17 +58,19 @@ export function ProjectsPage() {
         </label>
         <div className="ml-auto flex gap-2">
           <a
-            href="/api/v1/export/projects.xlsx"
+            href={workspaceUrl("/export/projects.xlsx")}
             className="rounded border border-line px-2 py-1 text-xs hover:bg-page"
           >
             XLSX
           </a>
+          {canEdit && (
           <button
             onClick={() => setCreating((v) => !v)}
             className="rounded bg-ink px-3 py-1 text-xs font-medium text-surface"
           >
             + Проект
           </button>
+          )}
         </div>
       </div>
 
@@ -127,12 +131,12 @@ export function ProjectsPage() {
                   }`}
                 >
                   <td className="px-3 py-2">
-                    <Link to={`/projects/${p.id}`} className="font-medium text-mts">
+                    <Link to={wsPath(`/projects/${p.id}`)} className="font-medium text-mts">
                       {p.code}
                     </Link>
                   </td>
                   <td className="px-3 py-2">
-                    <Link to={`/projects/${p.id}`}>{p.name}</Link>
+                    <Link to={wsPath(`/projects/${p.id}`)}>{p.name}</Link>
                     {p.weekly_update && (
                       <div className="mt-0.5 line-clamp-1 text-xs text-muted">
                         {p.weekly_update}

@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.services.backups import list_backups, run_backup_now
 
 router = APIRouter(tags=["admin"])
+audit_router = APIRouter(tags=["audit"])
 
 
 @router.get("/admin/backups")
@@ -28,7 +29,7 @@ async def backup_now(_user=Depends(get_current_user)):
         raise HTTPException(503, str(e))
 
 
-@router.get("/audit")
+@audit_router.get("/audit")
 async def audit(
     entity_type: str | None = None,
     entity_id: uuid.UUID | None = None,

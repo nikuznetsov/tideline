@@ -1,16 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, Fragment, useState } from "react";
-import { api, ApiError } from "../api/client";
+import { ApiError, wapi } from "../api/client";
 import type { Member } from "../api/types";
 import { AuditHistory } from "../features/AuditHistory";
+import { useWorkspace } from "../workspace";
 
 export function TeamPage() {
+  const { canEdit } = useWorkspace();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
   const members = useQuery<Member[]>({
     queryKey: ["members"],
-    queryFn: () => api.get<Member[]>("/members"),
+    queryFn: () => wapi.get<Member[]>("/members"),
   });
 
   const invalidate = () => {
@@ -20,7 +22,7 @@ export function TeamPage() {
 
   const create = useMutation({
     mutationFn: (body: { name: string; role_title: string | null }) =>
-      api.post("/members", body),
+      wapi.post("/members", body),
     onSuccess: () => {
       setError(null);
       invalidate();
@@ -31,20 +33,20 @@ export function TeamPage() {
 
   const patch = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
-      api.patch(`/members/${id}`, body),
+      wapi.patch(`/members/${id}`, body),
     onSuccess: invalidate,
     onError: (e) =>
       setError(e instanceof ApiError ? e.message : "Не удалось сохранить"),
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => api.delete(`/members/${id}`),
+    mutationFn: (id: string) => wapi.delete(`/members/${id}`),
     onSuccess: invalidate,
   });
 
   const reorder = useMutation({
     mutationFn: (member_ids: string[]) =>
-      api.post("/members/reorder", { member_ids }),
+      wapi.post("/members/reorder", { member_ids }),
     onSuccess: invalidate,
   });
 
@@ -80,6 +82,7 @@ export function TeamPage() {
         мягкое: данные не пропадают.
       </p>
 
+      {canEdit && (
       <form
         onSubmit={submitCreate}
         className="mb-4 flex flex-wrap items-end gap-2 rounded-lg border border-line bg-surface p-3"
@@ -109,6 +112,7 @@ export function TeamPage() {
           Добавить
         </button>
       </form>
+      )}
 
       {error && <p className="mb-3 text-xs text-mts">{error}</p>}
       {members.isLoading && <p className="py-8 text-center text-muted">Загрузка…</p>}
@@ -135,6 +139,7 @@ export function TeamPage() {
                 <MemberRow
                   key={m.id}
                   member={m}
+                  canEdit={canEdit}
                   onPatch={(body) => patch.mutate({ id: m.id, body })}
                   onDelete={() => {
                     if (
@@ -161,6 +166,7 @@ export function TeamPage() {
 
 function MemberRow({
   member,
+  canEdit,
   onPatch,
   onDelete,
   onUp,
@@ -169,6 +175,7 @@ function MemberRow({
   isLast,
 }: {
   member: Member;
+  canEdit: boolean;
   onPatch: (body: Record<string, unknown>) => void;
   onDelete: () => void;
   onUp: () => void;
@@ -186,7 +193,7 @@ function MemberRow({
       <td className="px-2 py-1.5 whitespace-nowrap">
         <button
           onClick={onUp}
-          disabled={isFirst}
+          disabled={isFirst || !canEdit}
           className="rounded border border-line px-1.5 py-0.5 text-xs hover:bg-page disabled:opacity-30"
           title="Выше на таймлайне"
         >
@@ -194,7 +201,7 @@ function MemberRow({
         </button>
         <button
           onClick={onDown}
-          disabled={isLast}
+          disabled={isLast || !canEdit}
           className="ml-1 rounded border border-line px-1.5 py-0.5 text-xs hover:bg-page disabled:opacity-30"
           title="Ниже на таймлайне"
         >
@@ -204,6 +211,7 @@ function MemberRow({
       <td className="px-3 py-1.5">
         <input
           value={name}
+          readOnly={!canEdit}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name.trim() && name !== member.name && onPatch({ name: name.trim() })}
           className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 hover:border-line focus:border-line focus:bg-page"
@@ -212,6 +220,7 @@ function MemberRow({
       <td className="px-3 py-1.5">
         <input
           value={role}
+          readOnly={!canEdit}
           onChange={(e) => setRole(e.target.value)}
           onBlur={() =>
             role !== (member.role_title ?? "") && onPatch({ role_title: role.trim() || null })
@@ -223,6 +232,7 @@ function MemberRow({
       <td className="px-2 py-1.5 text-center">
         <input
           type="checkbox"
+          disabled={!canEdit}
           checked={member.is_active}
           onChange={(e) => onPatch({ is_active: e.target.checked })}
           title={member.is_active ? "Скрыть из сетки и поиска" : "Вернуть в сетку"}
@@ -236,9 +246,11 @@ function MemberRow({
         >
           история
         </button>
+        {canEdit && (
         <button onClick={onDelete} className="text-xs text-mts underline">
           Удалить
         </button>
+        )}
       </td>
     </tr>
     {historyOpen && (

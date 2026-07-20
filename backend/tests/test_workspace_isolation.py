@@ -71,11 +71,11 @@ async def test_api_cannot_touch_foreign_allocation(
     await db.commit()
 
     resp = await auth_client.patch(
-        f"/api/v1/allocations/{alloc.id}", json={"load": "0.5"}
+        f"/api/v1/w/xops/allocations/{alloc.id}", json={"load": "0.5"}
     )
     assert resp.status_code == 404
-    resp = await auth_client.delete(f"/api/v1/allocations/{alloc.id}")
+    resp = await auth_client.delete(f"/api/v1/w/xops/allocations/{alloc.id}")
     assert resp.status_code == 404
     # и проект чужого пространства недоступен
-    resp = await auth_client.get(f"/api/v1/projects/{foreign_project.id}")
+    resp = await auth_client.get(f"/api/v1/w/xops/projects/{foreign_project.id}")
     assert resp.status_code == 404

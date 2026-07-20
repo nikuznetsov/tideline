@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api } from "../api/client";
+import { wapi } from "../api/client";
 import type { ShareLinkItem } from "../api/types";
 
 export function SharePanel({ onClose }: { onClose: () => void }) {
@@ -9,11 +9,11 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
 
   const links = useQuery<ShareLinkItem[]>({
     queryKey: ["share-links"],
-    queryFn: () => api.get<ShareLinkItem[]>("/share-links"),
+    queryFn: () => wapi.get<ShareLinkItem[]>("/share-links"),
   });
 
   const create = useMutation({
-    mutationFn: () => api.post<ShareLinkItem>("/share-links", {}),
+    mutationFn: () => wapi.post<ShareLinkItem>("/share-links", {}),
     onSuccess: (link) => {
       setCreated(link);
       queryClient.invalidateQueries({ queryKey: ["share-links"] });
@@ -21,7 +21,7 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
   });
 
   const revoke = useMutation({
-    mutationFn: (id: string) => api.delete(`/share-links/${id}`),
+    mutationFn: (id: string) => wapi.delete(`/share-links/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["share-links"] }),
   });
 
