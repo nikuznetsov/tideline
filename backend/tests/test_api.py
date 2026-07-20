@@ -381,3 +381,26 @@ async def test_integrity_error_maps_to_409():
 
     resp = await _integrity_error(None, IntegrityError("stmt", {}, Exception("dup")))
     assert resp.status_code == 409
+
+
+def test_rate_limiter_evicts_stale_keys():
+    """Словарь лимитера не растёт бесконечно: протухшие ключи выселяются."""
+    import time
+
+    from app.core.rate_limit import SlidingWindowLimiter
+
+    lim = SlidingWindowLimiter(max_requests=5, window_seconds=0.01)
+    for i in range(3000):
+        lim.check(f"ip-{i}")  # много уникальных IP (как публичный трафик)
+    time.sleep(0.02)  # окно истекло — все хиты протухли
+    for _ in range(SlidingWindowLimiter._SWEEP_EVERY):
+        lim.check("trigger")  # серия запросов гарантированно вызывает sweep
+    assert len(lim._hits) <= 2, len(lim._hits)
+
+
+def test_rate_limiter_still_limits():
+    """Уборка не ломает сам лимит."""
+    from app.core.rate_limit import SlidingWindowLimiter
+
+    lim = SlidingWindowLimiter(max_requests=3, window_seconds=60)
+    assert [lim.check("ip") for _ in range(5)] == [True, True, True, False, False]
