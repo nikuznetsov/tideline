@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
@@ -12,6 +12,7 @@ export function JoinPage({ user }: { user: User | null }) {
   const { token } = useParams<{ token: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const info = useQuery<JoinInfo>({
     queryKey: ["join", token],
@@ -21,7 +22,12 @@ export function JoinPage({ user }: { user: User | null }) {
 
   const join = useMutation({
     mutationFn: () => api.post<{ workspace_slug: string }>(`/join/${token}`),
-    onSuccess: (data) => navigate(`/w/${data.workspace_slug}/`),
+    onSuccess: async (data) => {
+      // список пространств мог закэшироваться до вступления — обновляем,
+      // иначе WorkspaceShell не найдёт новое пространство и покажет «Нет доступа»
+      await queryClient.refetchQueries({ queryKey: ["workspaces"] });
+      navigate(`/w/${data.workspace_slug}/`);
+    },
   });
 
   if (info.isLoading) {

@@ -53,15 +53,17 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     if (slug) localStorage.setItem(LAST_WS_KEY, slug);
   }, [slug]);
 
-  if (workspaces.isLoading) {
+  const list = workspaces.data ?? [];
+  const current = list.find((w) => w.slug === slug);
+  // пока список грузится или обновляется, «нет доступа» может быть устаревшим —
+  // показываем загрузку, а не ошибку
+  if (!current && (workspaces.isLoading || workspaces.isFetching)) {
     return (
       <div className="flex h-full items-center justify-center text-muted">
         Загрузка…
       </div>
     );
   }
-  const list = workspaces.data ?? [];
-  const current = list.find((w) => w.slug === slug);
   if (!current) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
