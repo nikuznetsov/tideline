@@ -202,3 +202,72 @@ async def test_owner_changes_role_and_last_owner_protected(auth_client, client2,
         f"/api/v1/w/xops/participants/{admin['user_id']}", json={"role": "viewer"}
     )
     assert resp.status_code == 403
+
+
+# ---------- регрессии по security-ревизии ----------
+
+async def test_participants_list_owner_only(auth_client, client2, workspace):
+    """Список участников с email — только владельцу (editor/viewer → 403)."""
+    await auth_client.patch("/api/v1/w/xops", json={"default_member_role": "editor"})
+    resp = await auth_client.post("/api/v1/w/xops/invite-links")
+    token = resp.json()["token"]
+    await _register(client2, "editor2@example.com")
+    await client2.post(f"/api/v1/join/{token}")
+
+    # editor видит таймлайн, но не список доступа
+    assert (await client2.get("/api/v1/w/xops/projects")).status_code == 200
+    resp = await client2.get("/api/v1/w/xops/participants")
+    assert resp.status_code == 403
+    # владельцу — доступно
+    assert (await auth_client.get("/api/v1/w/xops/participants")).status_code == 200
+
+
+async def test_backups_superuser_only(auth_client, client2, workspace):
+    """/admin/backups доступен только суперпользователю."""
+    await _register(client2, "plain@example.com")
+    resp = await client2.get("/api/v1/admin/backups")
+    assert resp.status_code == 403
+    resp = await client2.post("/api/v1/admin/backups/run")
+    assert resp.status_code == 403
+
+
+async def test_spa_path_traversal_blocked(client):
+    """SPA-fallback не должен отдавать исходники вне static (обход через %2e%2e).
+
+    Пропускается, если статика не собрана (нет catch-all маршрута)."""
+    from pathlib import Path
+
+    from app.core.config import get_settings
+
+    static_dir = (
+        Path(__import__("app").__file__).resolve().parent.parent
+        / get_settings().static_dir
+    )
+    if not static_dir.exists():
+        import pytest
+
+        pytest.skip("static не собрана")
+
+    for attack in [
+        "/%2e%2e/app/main.py",
+        "/%2e%2e/%2e%2e/backend/app/core/security.py",
+    ]:
+        resp = await client.get(attack)
+        # ни при каком коде ответа тело не должно содержать серверный исходник
+        assert "from fastapi" not in resp.text, attack
+        assert "def create_session_token" not in resp.text, attack
+
+
+async def test_absence_rejects_foreign_member(auth_client, other_workspace, team):
+    """Отсутствие нельзя завести на member_id из чужого пространства."""
+    import uuid
+
+    resp = await auth_client.post(
+        "/api/v1/w/xops/absences",
+        json={
+            "member_id": str(uuid.uuid4()),
+            "date_from": "2026-08-01",
+            "date_to": "2026-08-05",
+        },
+    )
+    assert resp.status_code == 404

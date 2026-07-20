@@ -67,6 +67,20 @@ async def _validate_day(db: AsyncSession, ws_id: uuid.UUID, member_id: uuid.UUID
         )
 
 
+async def _validate_member(db: AsyncSession, ws_id: uuid.UUID, member_id: uuid.UUID) -> None:
+    member = (
+        await db.execute(
+            select(Member.id).where(
+                Member.workspace_id == ws_id,
+                Member.id == member_id,
+                Member.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not member:
+        raise HTTPException(404, "Сотрудник не найден")
+
+
 async def _validate_project_active(db: AsyncSession, ws_id: uuid.UUID, project_id: uuid.UUID):
     project = (
         await db.execute(
@@ -90,6 +104,7 @@ async def create_allocation(
     ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
+    await _validate_member(db, ws.id, body.member_id)
     await _validate_project_active(db, ws.id, body.project_id)
     await _validate_day(db, ws.id, body.member_id, body.day)
 
@@ -136,6 +151,7 @@ async def bulk_allocations(
     """Drag-fill / выделение диапазона: массовое проставление или очистка."""
     affected = 0
     for item in body.items:
+        await _validate_member(db, ws.id, item.member_id)
         await _validate_project_active(db, ws.id, item.project_id)
         nw = {
             n.day

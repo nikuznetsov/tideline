@@ -14,7 +14,7 @@ interface Participant {
 }
 
 export function TeamPage() {
-  const { canEdit, current } = useWorkspace();
+  const { canEdit, isOwner, current } = useWorkspace();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState("");
@@ -24,9 +24,11 @@ export function TeamPage() {
     queryKey: ["members", getWorkspaceSlug()],
     queryFn: () => wapi.get<Member[]>("/members"),
   });
+  // список участników с email — только владельцу (управление доступом)
   const participants = useQuery<Participant[]>({
     queryKey: ["participants", current.slug],
     queryFn: () => api.get<Participant[]>(`/w/${current.slug}/participants`),
+    enabled: isOwner,
   });
 
   const invalidate = () => {
@@ -90,7 +92,7 @@ export function TeamPage() {
         мягкое, история аллокаций остаётся.
       </p>
 
-      {canEdit && (
+      {isOwner && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -146,8 +148,9 @@ export function TeamPage() {
       {members.isLoading && <p className="py-8 text-center text-muted">Загрузка…</p>}
       {members.isSuccess && rows.length === 0 && (
         <p className="rounded-lg border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          В команде пока никого нет. Пригласите людей ссылкой из блока
-          «Доступ в пространство» ниже и добавьте их сюда.
+          {isOwner
+            ? "В команде пока никого нет. Пригласите людей ссылкой из блока «Доступ в пространство» ниже и добавьте их сюда."
+            : "В команде пока никого нет. Добавить сотрудников может владелец пространства."}
         </p>
       )}
 
@@ -190,7 +193,7 @@ export function TeamPage() {
         </div>
       )}
 
-      <AccessSection />
+      {isOwner && <AccessSection />}
     </div>
   );
 }

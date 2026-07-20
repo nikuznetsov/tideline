@@ -19,9 +19,22 @@ async def get_current_user(
     uid = read_session_token(token)
     if not uid:
         raise HTTPException(status_code=401, detail="Сессия истекла")
-    user = await db.get(AppUser, uuid.UUID(uid))
+    try:
+        user_id = uuid.UUID(uid)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Сессия недействительна")
+    user = await db.get(AppUser, user_id)
     if not user:
         raise HTTPException(status_code=401, detail="Пользователь не найден")
+    return user
+
+
+async def get_current_superuser(
+    user: AppUser = Depends(get_current_user),
+) -> AppUser:
+    """Глобальные операции обслуживания (бэкапы): только суперпользователь."""
+    if not user.is_superuser:
+        raise HTTPException(status_code=403, detail="Доступно только администратору")
     return user
 
 

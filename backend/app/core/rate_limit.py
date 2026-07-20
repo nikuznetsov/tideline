@@ -28,9 +28,12 @@ share_limiter = SlidingWindowLimiter(max_requests=120, window_seconds=60)
 
 
 def client_ip(request: Request) -> str:
+    # X-Forwarded-For: client, proxy1, ..., trusted-proxy. Левые значения клиент
+    # может подделать (обход лимита брутфорса), поэтому берём правое — его
+    # добавляет наш прокси (Railway) и видит реальный адрес.
     fwd = request.headers.get("x-forwarded-for")
     if fwd:
-        return fwd.split(",")[0].strip()
+        return fwd.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 

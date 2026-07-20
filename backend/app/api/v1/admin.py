@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_workspace
+from app.core.deps import get_current_superuser, get_current_user, get_workspace
 from app.db.models import AuditLog, Workspace
 from app.db.session import get_db
 from app.services.backups import list_backups, run_backup_now
@@ -14,7 +14,7 @@ audit_router = APIRouter(tags=["audit"])
 
 
 @router.get("/admin/backups")
-async def backups(_user=Depends(get_current_user)):
+async def backups(_user=Depends(get_current_superuser)):
     try:
         return await list_backups()
     except RuntimeError as e:
@@ -22,7 +22,7 @@ async def backups(_user=Depends(get_current_user)):
 
 
 @router.post("/admin/backups/run")
-async def backup_now(_user=Depends(get_current_user)):
+async def backup_now(_user=Depends(get_current_superuser)):
     try:
         return await run_backup_now()
     except RuntimeError as e:

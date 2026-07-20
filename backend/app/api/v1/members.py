@@ -219,6 +219,18 @@ async def create_absence(
     if body.date_to < body.date_from:
         raise HTTPException(422, "Дата окончания раньше даты начала")
 
+    member_ok = (
+        await db.execute(
+            select(Member.id).where(
+                Member.workspace_id == ws.id,
+                Member.id == body.member_id,
+                Member.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not member_ok:
+        raise HTTPException(404, "Сотрудник не найден")
+
     from app.db.models import Allocation
 
     conflicting = (

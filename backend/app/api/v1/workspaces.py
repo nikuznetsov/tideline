@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.deps import (
     get_current_user,
-    get_workspace,
     get_workspace_owner,
 )
 from app.core.rate_limit import enforce, share_limiter
@@ -116,7 +115,7 @@ async def patch_workspace(
 @router.get("/w/{workspace_slug}/participants", response_model=list[ParticipantOut])
 async def participants(
     db: AsyncSession = Depends(get_db),
-    ws: Workspace = Depends(get_workspace),
+    ws: Workspace = Depends(get_workspace_owner),
 ):
     rows = (
         await db.execute(

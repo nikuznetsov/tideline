@@ -27,6 +27,13 @@ from app.db.session import get_session_factory
 async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_logging(settings.log_level)
+    # в продакшене (https) дефолтные секреты недопустимы: сессии подделываемы,
+    # а админ входит по общеизвестному паролю
+    if settings.app_base_url.startswith("https"):
+        if settings.secret_key == "dev-secret-change-me":
+            raise RuntimeError("SECRET_KEY не задан для продакшена")
+        if settings.admin_password == "admin":
+            raise RuntimeError("ADMIN_PASSWORD не задан для продакшена")
     if settings.sentry_dsn:
         try:
             import sentry_sdk
@@ -113,9 +120,14 @@ if static_dir.exists():
     if (static_dir / "fonts").exists():
         app.mount("/fonts", StaticFiles(directory=static_dir / "fonts"), name="fonts")
 
+    static_root = static_dir.resolve()
+
     @app.get("/{full_path:path}")
     async def spa(full_path: str):
-        file = static_dir / full_path
-        if full_path and file.is_file():
-            return FileResponse(file)
-        return FileResponse(static_dir / "index.html")
+        index = static_root / "index.html"
+        if full_path:
+            candidate = (static_root / full_path).resolve()
+            # не выпускаем за пределы static: %2e%2e и прочие обходы
+            if candidate.is_relative_to(static_root) and candidate.is_file():
+                return FileResponse(candidate)
+        return FileResponse(index)
