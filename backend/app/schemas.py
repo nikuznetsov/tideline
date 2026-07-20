@@ -1,10 +1,17 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 VALID_STEP = Decimal("0.05")
+
+
+def validate_capacity(v: Decimal) -> Decimal:
+    if not (Decimal("0") < v <= Decimal("1")):
+        raise ValueError("Ёмкость в день — доля из диапазона (0, 1]")
+    return v
 
 
 def validate_load(v: Decimal) -> Decimal:
@@ -109,6 +116,11 @@ class MemberPatch(BaseModel):
     tags: list[str] | None = None
     is_active: bool | None = None
 
+    @field_validator("capacity_per_day")
+    @classmethod
+    def _v(cls, v):
+        return None if v is None else validate_capacity(v)
+
 
 class ReorderRequest(BaseModel):
     member_ids: list[uuid.UUID]
@@ -130,7 +142,7 @@ class AbsenceCreate(BaseModel):
     member_id: uuid.UUID
     date_from: date
     date_to: date
-    kind: str = "vacation"
+    kind: Literal["vacation", "sick", "holiday", "other"] = "vacation"
     note: str | None = None
     # подтверждение: удалить аллокации, попавшие в диапазон отсутствия
     clear_allocations: bool = False
@@ -311,7 +323,7 @@ class MilestoneOut(BaseModel):
 class MilestoneIn(BaseModel):
     title: str
     due_date: date | None = None
-    status: str = "planned"
+    status: Literal["planned", "in_progress", "done", "dropped"] = "planned"
     owner_member_id: uuid.UUID | None = None
     sort_order: int = 0
 
@@ -326,7 +338,7 @@ class ProjectUpdateOut(BaseModel):
 
 class ProjectUpdateIn(BaseModel):
     body: str
-    health_after: str | None = None
+    health_after: Literal["green", "amber", "red"] | None = None
 
 
 class ProjectOut(BaseModel):
@@ -362,8 +374,8 @@ class ProjectCreate(BaseModel):
 class ProjectPatch(BaseModel):
     code: str | None = None
     name: str | None = None
-    lifecycle: str | None = None
-    health: str | None = None
+    lifecycle: Literal["active", "paused", "finished"] | None = None
+    health: Literal["green", "amber", "red"] | None = None
     weekly_update: str | None = None
     goal: str | None = None
     scope_md: str | None = None

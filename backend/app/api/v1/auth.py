@@ -69,7 +69,9 @@ async def login(
 ):
     enforce(login_limiter, request)
     user = (
-        await db.execute(select(AppUser).where(AppUser.email == body.email.lower()))
+        await db.execute(
+            select(AppUser).where(AppUser.email == body.email.strip().lower())
+        )
     ).scalar_one_or_none()
     if not user or not verify_password(user.password_hash, body.password):
         raise HTTPException(status_code=401, detail="Неверный email или пароль")

@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 
 from fastapi import APIRouter
 
@@ -52,6 +53,16 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestContextMiddleware)
 
 api = FastAPI(title="xOps Tideline API")
+
+
+async def _integrity_error(request: Request, exc: Exception):
+    # последний рубеж: нарушение ограничения БД (гонки на unique и т.п.) —
+    # это конфликт данных, а не сбой сервера
+    return JSONResponse({"detail": "Конфликт данных"}, status_code=409)
+
+
+app.add_exception_handler(IntegrityError, _integrity_error)
+api.add_exception_handler(IntegrityError, _integrity_error)
 # без пространства: аутентификация, список пространств, вступление, публичные срезы
 api.include_router(auth.router)
 api.include_router(workspaces.router)

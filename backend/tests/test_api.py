@@ -328,3 +328,56 @@ async def test_share_link_lifecycle(auth_client, client, team, monday):
 async def test_invalid_share_token_404(client, workspace):
     resp = await client.get("/api/v1/s/deadbeef/timeline")
     assert resp.status_code == 404
+
+
+async def test_input_validation_returns_422_not_500(auth_client, team):
+    pid = str(team["project"].id)
+    mid = str(team["members"][0].id)
+
+    # невалидные enum-значения → 422 (раньше доходили до CHECK и роняли 500)
+    assert (await auth_client.patch(
+        f"/api/v1/w/xops/projects/{pid}", json={"lifecycle": "banana"}
+    )).status_code == 422
+    assert (await auth_client.patch(
+        f"/api/v1/w/xops/projects/{pid}", json={"health": "blue"}
+    )).status_code == 422
+    assert (await auth_client.post(
+        f"/api/v1/w/xops/projects/{pid}/updates",
+        json={"body": "x", "health_after": "blue"},
+    )).status_code == 422
+    assert (await auth_client.post(
+        "/api/v1/w/xops/absences",
+        json={"member_id": mid, "date_from": "2026-08-01", "date_to": "2026-08-02", "kind": "nonsense"},
+    )).status_code == 422
+    assert (await auth_client.put(
+        f"/api/v1/w/xops/projects/{pid}/milestones",
+        json=[{"title": "M", "status": "weird"}],
+    )).status_code == 422
+
+    # capacity_per_day вне (0, 1] → 422 (в т.ч. переполнение Numeric и отрицательное)
+    for bad in ["99.5", "-1", "0", "1.5"]:
+        r = await auth_client.patch(
+            f"/api/v1/w/xops/members/{mid}", json={"capacity_per_day": bad}
+        )
+        assert r.status_code == 422, bad
+    r = await auth_client.patch(
+        f"/api/v1/w/xops/members/{mid}", json={"capacity_per_day": "0.5"}
+    )
+    assert r.status_code == 200
+
+
+async def test_login_trims_email(client, workspace):
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "  admin@example.com  ", "password": "admin"},
+    )
+    assert resp.status_code == 200
+
+
+async def test_integrity_error_maps_to_409():
+    from sqlalchemy.exc import IntegrityError
+
+    from app.main import _integrity_error
+
+    resp = await _integrity_error(None, IntegrityError("stmt", {}, Exception("dup")))
+    assert resp.status_code == 409
