@@ -35,6 +35,7 @@ export function AccessSection() {
   const [error, setError] = useState<string | null>(null);
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
   const [removingAccess, setRemovingAccess] = useState<Participant | null>(null);
+  const [revokingInvite, setRevokingInvite] = useState<InviteLinkItem | null>(null);
   const base = `/w/${current.slug}`;
 
   const members = useQuery<Member[]>({
@@ -236,7 +237,7 @@ export function AccessSection() {
                       />
                     )}
                     <button
-                      onClick={() => revokeInvite.mutate(l.id)}
+                      onClick={() => setRevokingInvite(l)}
                       className="text-xs text-mts underline"
                     >
                       Отозвать
@@ -249,6 +250,21 @@ export function AccessSection() {
         </>
       )}
 
+      {revokingInvite && (
+        <ConfirmDialog
+          title="Отозвать приглашение"
+          message={
+            <>
+              Отозвать ссылку <b className="font-nums">{revokingInvite.token_prefix}…</b>?
+              Вступить по ней больше не получится, у уже вступивших доступ
+              останется.
+            </>
+          }
+          confirmLabel="Отозвать"
+          onConfirm={() => revokeInvite.mutate(revokingInvite.id)}
+          onClose={() => setRevokingInvite(null)}
+        />
+      )}
       {removingAccess && (
         <ConfirmDialog
           title="Убрать доступ"

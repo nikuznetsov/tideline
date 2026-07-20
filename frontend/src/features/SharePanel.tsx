@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { getWorkspaceSlug, wapi } from "../api/client";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyButton } from "../components/CopyButton";
 import type { ShareLinkItem } from "../api/types";
 
 export function SharePanel({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [created, setCreated] = useState<ShareLinkItem | null>(null);
+  const [revoking, setRevoking] = useState<ShareLinkItem | null>(null);
 
   const links = useQuery<ShareLinkItem[]>({
     queryKey: ["share-links", getWorkspaceSlug()],
@@ -78,7 +80,7 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
                   />
                 )}
                 <button
-                  onClick={() => revoke.mutate(l.id)}
+                  onClick={() => setRevoking(l)}
                   className="text-xs text-mts underline"
                 >
                   Отозвать
@@ -91,6 +93,21 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+
+      {revoking && (
+        <ConfirmDialog
+          title="Отозвать ссылку"
+          message={
+            <>
+              Отозвать ссылку <b className="font-nums">{revoking.token_prefix}…</b>?
+              Все, у кого она есть, потеряют доступ к просмотру.
+            </>
+          }
+          confirmLabel="Отозвать"
+          onConfirm={() => revoke.mutate(revoking.id)}
+          onClose={() => setRevoking(null)}
+        />
+      )}
     </aside>
   );
 }
