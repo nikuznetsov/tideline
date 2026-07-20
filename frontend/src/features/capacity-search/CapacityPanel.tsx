@@ -6,7 +6,6 @@ import { addDays, currentMonday, dayLabel } from "../../lib/dates";
 import { fmtNum, plural } from "../../lib/format";
 
 const WARNING_LABEL: Record<string, string> = {
-  bus_factor: "Bus factor",
   absence: "Отпуск",
   fragmentation: "Фрагментация",
 };
@@ -162,13 +161,7 @@ export function CapacityPanel({ onClose }: { onClose: () => void }) {
                     <ul className="mt-1.5 space-y-0.5">
                       {c.warnings.map((w, i) => (
                         <li key={i} className="flex items-start gap-1 text-xs">
-                          <span
-                            className={`mt-px rounded px-1 text-[10px] font-bold uppercase ${
-                              w.kind === "bus_factor"
-                                ? "bg-[var(--load-over-bg)] text-[var(--load-over-ink)]"
-                                : "bg-page text-muted"
-                            }`}
-                          >
+                          <span className="mt-px rounded bg-page px-1 text-[10px] font-bold uppercase text-muted">
                             {WARNING_LABEL[w.kind] ?? w.kind}
                           </span>
                           <span className="text-muted">{w.message}</span>

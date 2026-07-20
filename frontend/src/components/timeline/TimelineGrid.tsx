@@ -69,12 +69,9 @@ export function TimelineGrid({
   }, [data.projects]);
 
   const allocMap = useMemo(() => {
-    const map = new Map<string, { load: string; isSole: boolean }>();
+    const map = new Map<string, { load: string }>();
     for (const a of data.allocations) {
-      map.set(`${a.member_id}|${a.project_id}|${a.day}`, {
-        load: a.load,
-        isSole: a.is_sole_owner,
-      });
+      map.set(`${a.member_id}|${a.project_id}|${a.day}`, { load: a.load });
     }
     return map;
   }, [data.allocations]);
@@ -512,11 +509,6 @@ export function TimelineGrid({
                           >
                             {row.projectCode}
                           </Link>
-                        )}
-                        {[...allocMap.entries()].some(
-                          ([k, v]) => k.startsWith(`${row.memberId}|${row.projectId}|`) && v.isSole,
-                        ) && (
-                          <span title="Единственный носитель экспертизы (bus factor)">🔑</span>
                         )}
                       </div>
                       {days.map((d, c) => {

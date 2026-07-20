@@ -162,7 +162,6 @@ async def build_timeline(
                 project_id=a.project_id,
                 day=a.day,
                 load=Decimal(str(a.load)),
-                is_sole_owner=a.is_sole_owner,
                 note=None if public else a.note,
             )
             for a in allocations

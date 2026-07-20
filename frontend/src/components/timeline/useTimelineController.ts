@@ -46,7 +46,6 @@ export function applyCells(
         project_id: c.project_id,
         day: c.day,
         load: c.load,
-        is_sole_owner: false,
         note: null,
       });
     }

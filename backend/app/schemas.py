@@ -181,7 +181,6 @@ class AllocationOut(BaseModel):
     project_id: uuid.UUID
     day: date
     load: Decimal
-    is_sole_owner: bool
     note: str | None
 
 
@@ -214,7 +213,6 @@ class AllocationBulkRequest(BaseModel):
 class AllocationPatch(BaseModel):
     load: Decimal | None = None
     note: str | None = None
-    is_sole_owner: bool | None = None
 
     @field_validator("load")
     @classmethod
@@ -236,7 +234,6 @@ class TimelineAllocation(BaseModel):
     project_id: uuid.UUID
     day: date
     load: Decimal
-    is_sole_owner: bool
     note: str | None = None
 
 

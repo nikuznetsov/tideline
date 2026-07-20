@@ -16,7 +16,6 @@ export interface TimelineAllocation {
   project_id: string;
   day: string;
   load: string;
-  is_sole_owner: boolean;
   note: string | null;
 }
 

@@ -249,16 +249,14 @@ async def patch_allocation(
     ).scalar_one_or_none()
     if not alloc:
         raise HTTPException(404, "Аллокация не найдена")
-    before = _alloc_dict(alloc) | {"is_sole_owner": alloc.is_sole_owner, "note": alloc.note}
+    before = _alloc_dict(alloc) | {"note": alloc.note}
     if body.load is not None:
         alloc.load = body.load
     if body.note is not None:
         alloc.note = body.note or None
-    if body.is_sole_owner is not None:
-        alloc.is_sole_owner = body.is_sole_owner
     record_audit(
         db, ws.id, user.id, "allocation", alloc.id, "update",
-        before, _alloc_dict(alloc) | {"is_sole_owner": alloc.is_sole_owner, "note": alloc.note},
+        before, _alloc_dict(alloc) | {"note": alloc.note},
     )
     await db.commit()
     return alloc
@@ -393,7 +391,6 @@ async def copy_week(
             project_id=a.project_id,
             day=new_day,
             load=a.load,
-            is_sole_owner=a.is_sole_owner,
             created_by=user.id,
         )
         db.add(alloc)

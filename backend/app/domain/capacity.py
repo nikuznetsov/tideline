@@ -11,7 +11,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Absence, Allocation, Member, NonWorkingDay, Project
+from app.db.models import Absence, Allocation, Member, NonWorkingDay
 from app.domain.calendar import date_range, is_weekend, week_start_of
 
 
@@ -187,24 +187,6 @@ async def search_capacity(
     )
     nw_days = {n.day for n in non_working}
 
-    # sole-owner: активные проекты, где сотрудник — единственный носитель экспертизы
-    sole_rows = (
-        await db.execute(
-            select(Allocation.member_id, Project.name)
-            .join(Project, Allocation.project_id == Project.id)
-            .where(
-                Allocation.workspace_id == workspace_id,
-                Allocation.is_sole_owner.is_(True),
-                Project.lifecycle == "active",
-                Project.deleted_at.is_(None),
-            )
-            .distinct()
-        )
-    ).all()
-    sole_by_member: dict[uuid.UUID, list[str]] = {}
-    for member_id, project_name in sole_rows:
-        sole_by_member.setdefault(member_id, []).append(project_name)
-
     candidates: list[Candidate] = []
     total_free = Decimal(0)
 
@@ -228,14 +210,6 @@ async def search_capacity(
             continue
 
         warnings: list[dict] = []
-        if m.id in sole_by_member:
-            warnings.append(
-                {
-                    "kind": "bus_factor",
-                    "message": "Единственный носитель экспертизы: "
-                    + ", ".join(sole_by_member[m.id]),
-                }
-            )
         vac = absence_days(absences, m.id, date_from, date_to)
         if vac:
             warnings.append(

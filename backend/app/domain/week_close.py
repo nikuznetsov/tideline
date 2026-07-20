@@ -72,7 +72,6 @@ async def build_week_payload(
                 "project_code": projects[a.project_id].code if a.project_id in projects else None,
                 "day": a.day.isoformat(),
                 "load": _num(a.load),
-                "is_sole_owner": a.is_sole_owner,
             }
             for a in allocations
         ],

@@ -257,7 +257,6 @@ class Allocation(Base, TimestampMixin):
     )
     day: Mapped[date] = mapped_column(Date, nullable=False)
     load: Mapped[float] = mapped_column(Numeric(3, 2), nullable=False)
-    is_sole_owner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("app_user.id"), nullable=True

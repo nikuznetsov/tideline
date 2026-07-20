@@ -154,14 +154,12 @@ async def seed() -> None:
                             workspace_id=ws.id, member_id=member.id,
                             project_id=primary.id, day=d, load=Decimal("1.0"),
                             created_by=user.id,
-                            is_sole_owner=(member is members[0] and primary.code == "RAGX"),
                         ))
                     else:
                         db.add(m.Allocation(
                             workspace_id=ws.id, member_id=member.id,
                             project_id=primary.id, day=d, load=Decimal("0.5"),
                             created_by=user.id,
-                            is_sole_owner=(member is members[0] and primary.code == "RAGX"),
                         ))
                         db.add(m.Allocation(
                             workspace_id=ws.id, member_id=member.id,

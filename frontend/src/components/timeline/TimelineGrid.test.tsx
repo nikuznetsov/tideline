@@ -60,7 +60,6 @@ const data: TimelineResponse = {
       project_id: "p1",
       day: days[0],
       load: "0.5",
-      is_sole_owner: false,
       note: null,
     },
   ],

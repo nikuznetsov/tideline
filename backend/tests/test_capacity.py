@@ -118,26 +118,6 @@ async def test_tags_filter(db, workspace, team, monday):
     assert result.candidates[0].member.name == "Аня"
 
 
-async def test_sole_owner_warning(db, workspace, team, monday):
-    member = team["members"][0]
-    db.add(
-        Allocation(
-            workspace_id=workspace.id,
-            member_id=member.id,
-            project_id=team["project"].id,
-            day=monday,
-            load=Decimal("0.5"),
-            is_sole_owner=True,
-        )
-    )
-    await db.commit()
-    result = await search_capacity(
-        db, workspace.id, monday, monday, Decimal("1"), today=monday
-    )
-    anya = next(c for c in result.candidates if c.member.id == member.id)
-    assert any(w["kind"] == "bus_factor" for w in anya.warnings)
-
-
 async def test_plan_horizon_warning(db, workspace, team, monday):
     far = monday + timedelta(days=30)
     result = await search_capacity(
