@@ -1,0 +1,5 @@
+# Крон-задачи бэкапов на VM (аналог cron-сервисов из railway.toml).
+# Установка: crontab ops/mws/crontab  (замещает текущий crontab целиком!)
+# Время — системное (на VM обычно UTC): 00:00 UTC = 03:00 МСК, вс 04:00 = 07:00 МСК.
+0 0 * * * cd /home/tideline/ops/mws && docker compose run --rm app python /srv/ops/backup.py >> /var/log/tideline-backup.log 2>&1
+0 4 * * 0 cd /home/tideline/ops/mws && docker compose run --rm app python /srv/ops/verify_backup.py >> /var/log/tideline-backup.log 2>&1
