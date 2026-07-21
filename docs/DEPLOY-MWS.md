@@ -101,7 +101,7 @@ docker compose exec db pg_restore -U tideline -d tideline --no-owner --clean --i
 
 Когда DNS раскатается (минуты — час), Caddy при первом заходе на
 `https://<домен>` сам получит сертификат Let's Encrypt. Проверка:
-`https://xops-tideline.online` открывается, вход под `ADMIN_EMAIL` /
+`https://xops-tideline.ru` открывается, вход под `ADMIN_EMAIL` /
 `ADMIN_PASSWORD` работает.
 
 ## Шаг 6. Передеплой после изменений

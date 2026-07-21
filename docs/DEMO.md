@@ -4,7 +4,7 @@
 
 ## Доступ
 
-- **Ссылка:** https://xops-tideline.online
+- **Ссылка:** https://xops-tideline.ru
 - **Логин:** тот же, что и раньше (значение `ADMIN_EMAIL` из `.env` на VM)
 - **Пароль:** тот же (значение `ADMIN_PASSWORD`)
 - **Роль:** owner — доступно всё.
