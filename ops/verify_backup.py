@@ -17,38 +17,20 @@ import sys
 import tempfile
 from pathlib import Path
 
-import boto3
-from botocore.config import Config
-
-
-def env(name: str) -> str:
-    value = os.environ.get(name)
-    if not value:
-        print(f"ERROR: переменная {name} не задана", file=sys.stderr)
-        sys.exit(2)
-    return value
+from storage import env, get_storage
 
 
 def main() -> None:
-    bucket = env("BACKUP_S3_BUCKET")
     environment = os.environ.get("RAILWAY_ENVIRONMENT", "production")
     prefix = f"tideline/{environment}/"
-    client = boto3.client(
-        "s3",
-        endpoint_url=env("BACKUP_S3_ENDPOINT"),
-        aws_access_key_id=env("BACKUP_S3_ACCESS_KEY"),
-        aws_secret_access_key=env("BACKUP_S3_SECRET_KEY"),
-        region_name=os.environ.get("BACKUP_S3_REGION", "auto"),
-        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
-    )
+    storage = get_storage()
 
-    resp = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
     dumps = sorted(
-        (o["Key"] for o in resp.get("Contents", []) if o["Key"].endswith("dump.pgc.age")),
+        (k for k in storage.list_keys(prefix) if k.endswith("dump.pgc.age")),
         reverse=True,
     )
     if not dumps:
-        print("ERROR: в бакете нет дампов", file=sys.stderr)
+        print("ERROR: в хранилище нет дампов", file=sys.stderr)
         sys.exit(1)
     latest = dumps[0]
     print(f"verifying {latest}")
@@ -59,7 +41,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         enc = Path(tmp) / "dump.pgc.age"
         dump = Path(tmp) / "dump.pgc"
-        client.download_file(bucket, latest, str(enc))
+        storage.download(latest, enc)
 
         key_file = Path(tmp) / "age.key"
         key_file.write_text(env("AGE_SECRET_KEY") + "\n")
@@ -79,7 +61,7 @@ def main() -> None:
         finally:
             run_psql(admin_url, f'DROP DATABASE IF EXISTS "{verify_db}" WITH (FORCE)')
 
-    client.put_object(Bucket=bucket, Key=latest + ".verified", Body=b"ok")
+    storage.put_text(latest + ".verified", "ok")
     print("verify ok")
 
 

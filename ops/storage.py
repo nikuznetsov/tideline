@@ -1,0 +1,98 @@
+"""Хранилище бэкапов: локальный каталог (BACKUP_DIR) или S3 (BACKUP_S3_*).
+
+Ключи везде вида tideline/{environment}/{дата}/dump.pgc.age — при переходе
+с локального каталога на S3 меняются только переменные окружения, раскладка
+и скрипты остаются теми же.
+"""
+
+import os
+import shutil
+import sys
+from pathlib import Path
+
+
+def env(name: str, default: str | None = None) -> str:
+    value = os.environ.get(name, default)
+    if value is None:
+        print(f"ERROR: переменная {name} не задана", file=sys.stderr)
+        sys.exit(2)
+    return value
+
+
+class LocalStorage:
+    """Каталог на диске (например, /backups — маунт /var/backups/tideline с хоста)."""
+
+    def __init__(self, root: str) -> None:
+        self.root = Path(root)
+
+    def upload(self, key: str, path: Path) -> None:
+        dst = self.root / key
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, dst)
+        print(f"saved {dst} ({path.stat().st_size} bytes)")
+
+    def download(self, key: str, dst: Path) -> None:
+        shutil.copy2(self.root / key, dst)
+
+    def put_text(self, key: str, body: str) -> None:
+        dst = self.root / key
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(body)
+
+    def list_keys(self, prefix: str) -> list[str]:
+        return [
+            str(p.relative_to(self.root))
+            for p in self.root.rglob("*")
+            if p.is_file() and str(p.relative_to(self.root)).startswith(prefix)
+        ]
+
+    def delete(self, key: str) -> None:
+        path = self.root / key
+        path.unlink()
+        # прибрать опустевшие каталоги дат
+        parent = path.parent
+        while parent != self.root and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
+
+
+class S3Storage:
+    def __init__(self) -> None:
+        import boto3
+        from botocore.config import Config
+
+        # region по умолчанию auto (как у R2/Railway Bucket) — иначе boto3 падает
+        # без региона; path-style адресация совместима с любым S3-провайдером
+        self.client = boto3.client(
+            "s3",
+            endpoint_url=env("BACKUP_S3_ENDPOINT"),
+            aws_access_key_id=env("BACKUP_S3_ACCESS_KEY"),
+            aws_secret_access_key=env("BACKUP_S3_SECRET_KEY"),
+            region_name=os.environ.get("BACKUP_S3_REGION", "auto"),
+            config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+        )
+        self.bucket = env("BACKUP_S3_BUCKET")
+
+    def upload(self, key: str, path: Path) -> None:
+        self.client.upload_file(str(path), self.bucket, key)
+        print(f"uploaded s3://{self.bucket}/{key} ({path.stat().st_size} bytes)")
+
+    def download(self, key: str, dst: Path) -> None:
+        self.client.download_file(self.bucket, key, str(dst))
+
+    def put_text(self, key: str, body: str) -> None:
+        self.client.put_object(Bucket=self.bucket, Key=key, Body=body.encode())
+
+    def list_keys(self, prefix: str) -> list[str]:
+        resp = self.client.list_objects_v2(Bucket=self.bucket, Prefix=prefix)
+        return [o["Key"] for o in resp.get("Contents", [])]
+
+    def delete(self, key: str) -> None:
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+
+
+def get_storage() -> LocalStorage | S3Storage:
+    backup_dir = os.environ.get("BACKUP_DIR")
+    if backup_dir:
+        return LocalStorage(backup_dir)
+    return S3Storage()

@@ -37,6 +37,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://tideline:${POSTGRES_PASSWORD}@db:5432/tideline
+    volumes:
+      - /var/backups/tideline:/backups
     command: >
       sh -c 'if [ "$$SKIP_PREDEPLOY_BACKUP" = "1" ]; then echo skip backup;
       else BACKUP_LABEL=pre-migration-$$(python -m alembic heads --resolve-dependencies 2>/dev/null | head -c 12 || echo unknown) python /srv/ops/backup.py; fi
@@ -55,6 +57,9 @@ services:
     environment:
       DATABASE_URL: postgresql://tideline:${POSTGRES_PASSWORD}@db:5432/tideline
       PORT: "8000"
+    volumes:
+      # локальные бэкапы (BACKUP_DIR=/backups); cron делает docker compose run app
+      - /var/backups/tideline:/backups
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
       interval: 15s

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Ежедневный бэкап: pg_dump + JSON-экспорт, шифрование age, загрузка в S3, ротация.
+"""Ежедневный бэкап: pg_dump + JSON-экспорт, шифрование age, выгрузка, ротация.
 
-Запускается cron-сервисом Railway (cron-backup) и вручную: python ops/backup.py.
-Переменные окружения: DATABASE_URL, BACKUP_S3_*, BACKUP_ENCRYPTION_KEY (публичный
-age-ключ получателя, age1...), BACKUP_RETENTION_DAILY/WEEKLY/MONTHLY, RAILWAY_ENVIRONMENT.
+Запускается cron-сервисом/crontab и вручную: python ops/backup.py.
+Переменные окружения: DATABASE_URL, BACKUP_ENCRYPTION_KEY (публичный age-ключ
+получателя, age1...), хранилище — BACKUP_DIR (локальный каталог) или BACKUP_S3_*
+(см. storage.py), BACKUP_RETENTION_DAILY/WEEKLY/MONTHLY, RAILWAY_ENVIRONMENT.
 
 Выход с ненулевым кодом — сигнал для release-фазы остановить деплой.
 """
@@ -16,29 +17,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-import boto3
-from botocore.config import Config
-
-
-def env(name: str, default: str | None = None) -> str:
-    value = os.environ.get(name, default)
-    if value is None:
-        print(f"ERROR: переменная {name} не задана", file=sys.stderr)
-        sys.exit(2)
-    return value
-
-
-def s3_client():
-    # region по умолчанию auto (как у R2/Railway Bucket) — иначе boto3 падает
-    # без региона; path-style адресация совместима с любым S3-провайдером
-    return boto3.client(
-        "s3",
-        endpoint_url=env("BACKUP_S3_ENDPOINT"),
-        aws_access_key_id=env("BACKUP_S3_ACCESS_KEY"),
-        aws_secret_access_key=env("BACKUP_S3_SECRET_KEY"),
-        region_name=os.environ.get("BACKUP_S3_REGION", "auto"),
-        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
-    )
+from storage import env, get_storage
 
 
 def encrypt_age(src: Path, dst: Path, recipient: str) -> None:
@@ -87,26 +66,20 @@ def _jsonable(v):
     return str(v)
 
 
-def upload(client, bucket: str, key: str, path: Path) -> None:
-    client.upload_file(str(path), bucket, key)
-    print(f"uploaded s3://{bucket}/{key} ({path.stat().st_size} bytes)")
-
-
-def rotate(client, bucket: str, prefix: str) -> None:
+def rotate(storage, prefix: str) -> None:
     """7 ежедневных, 4 еженедельных (вс), 6 ежемесячных (1-е число)."""
     daily = int(os.environ.get("BACKUP_RETENTION_DAILY", "7"))
     weekly = int(os.environ.get("BACKUP_RETENTION_WEEKLY", "4"))
     monthly = int(os.environ.get("BACKUP_RETENTION_MONTHLY", "6"))
 
-    resp = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
     by_date: dict[dt.date, list[str]] = {}
-    for obj in resp.get("Contents", []):
-        parts = obj["Key"][len(prefix):].split("/")
+    for key in storage.list_keys(prefix):
+        parts = key[len(prefix):].split("/")
         try:
             day = dt.date.fromisoformat(parts[0])
         except (ValueError, IndexError):
             continue
-        by_date.setdefault(day, []).append(obj["Key"])
+        by_date.setdefault(day, []).append(key)
 
     today = dt.date.today()
     keep: set[dt.date] = set()
@@ -121,37 +94,36 @@ def rotate(client, bucket: str, prefix: str) -> None:
         if day in keep or day == today:
             continue
         for key in keys:
-            client.delete_object(Bucket=bucket, Key=key)
+            storage.delete(key)
             print(f"rotated out: {key}")
 
 
 def main() -> None:
     database_url = env("DATABASE_URL").replace("postgresql+asyncpg://", "postgresql://")
     recipient = env("BACKUP_ENCRYPTION_KEY")
-    bucket = env("BACKUP_S3_BUCKET")
     environment = os.environ.get("RAILWAY_ENVIRONMENT", "production")
     label = os.environ.get("BACKUP_LABEL")  # напр. pre-migration-{revision}
     today = dt.date.today().isoformat()
     prefix = f"tideline/{environment}/"
     day_prefix = f"{prefix}{today}/" if not label else f"{prefix}{today}/{label}-"
 
-    client = s3_client()
+    storage = get_storage()
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         dump = tmp_path / "dump.pgc"
         pg_dump(database_url, dump)
         dump_age = tmp_path / "dump.pgc.age"
         encrypt_age(dump, dump_age, recipient)
-        upload(client, bucket, f"{day_prefix}dump.pgc.age", dump_age)
+        storage.upload(f"{day_prefix}dump.pgc.age", dump_age)
 
         export = tmp_path / "export.json"
         json_export(database_url, export)
         export_age = tmp_path / "export.json.age"
         encrypt_age(export, export_age, recipient)
-        upload(client, bucket, f"{day_prefix}export.json.age", export_age)
+        storage.upload(f"{day_prefix}export.json.age", export_age)
 
     if not label:
-        rotate(client, bucket, prefix)
+        rotate(storage, prefix)
     record_status(database_url, environment)
     print("backup ok")
 

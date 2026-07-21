@@ -113,25 +113,67 @@ cd ~/tideline/ops/mws && ./deploy.sh
 Скрипт делает `git pull` → сборку → migrate (с pre-deploy бэкапом, если
 настроен) → перезапуск.
 
-## Шаг 7. Бэкапы (перед реальной эксплуатацией)
+## Шаг 7. Бэкапы
 
-Схема та же, что описана в `docs/RESTORE.md`: `ops/backup.py` →
-pg_dump → age-шифрование → S3. На MWS Cloud есть свой S3-совместимый Object
-Storage — бакет логично завести там (но лучше в другом регионе/аккаунте, чем
-VM, чтобы бэкап не жил рядом с базой).
+Схема та же, что описана в `docs/RESTORE.md`: `ops/backup.py` → pg_dump +
+JSON-экспорт → age-шифрование → хранилище → ротация (7 дневных / 4 недельных /
+6 месячных). Хранилище выбирается переменными: `BACKUP_DIR` — локальный
+каталог, `BACKUP_S3_*` — S3.
 
-1. Создайте бакет, получите endpoint/ключи, заполните `BACKUP_S3_*` в `.env`.
-2. `age-keygen -o age.key`: публичный ключ → `BACKUP_ENCRYPTION_KEY` в `.env`,
-   приватный — в отдельный менеджер секретов, **не на эту VM**.
-3. Уберите `SKIP_PREDEPLOY_BACKUP` (или `=0`), проверьте:
-   `docker compose run --rm app python /srv/ops/backup.py` → «backup ok».
+### 7.1. Локально на VM (для начала)
+
+Бэкапы складываются в `/var/backups/tideline` на хосте (в контейнер каталог
+смонтирован как `/backups`, см. compose).
+
+1. age-ключи (age уже есть в образе):
+
+   ```bash
+   docker compose run --rm app age-keygen
+   ```
+
+   Публичный ключ (`age1…`) → `BACKUP_ENCRYPTION_KEY` в `.env`. Приватный
+   (`AGE-SECRET-KEY-…`) → `AGE_SECRET_KEY` в `.env` (нужен verify и restore)
+   **и обязательно копию в менеджер паролей вне VM** — без него дампы не
+   расшифровать.
+2. В `.env`: `BACKUP_DIR=/backups`,
+   `VERIFY_DATABASE_URL=postgresql://tideline:<пароль>@db:5432/tideline`,
+   `SKIP_PREDEPLOY_BACKUP=0`.
+3. Проверка вручную:
+
+   ```bash
+   docker compose run --rm app python /srv/ops/backup.py          # backup ok
+   docker compose run --rm app python /srv/ops/verify_backup.py   # verify ok
+   ls -R /var/backups/tideline
+   ```
+
 4. Кроны — обычным crontab на VM (аналог cron-сервисов из `railway.toml`):
 
+   ```cron
+   # crontab -e
+   0 0 * * * cd /home/tideline/ops/mws && docker compose run --rm app python /srv/ops/backup.py >> /var/log/tideline-backup.log 2>&1
+   0 4 * * 0 cd /home/tideline/ops/mws && docker compose run --rm app python /srv/ops/verify_backup.py >> /var/log/tideline-backup.log 2>&1
+   ```
+
+**Важно:** локальный бэкап защищает от «сломали данные/миграцию», но не от
+гибели самой VM — диск один и тот же. Настройте выгрузку каталога наружу
+(rsync на другую машину или, лучше, переезд на вариант 7.2), например:
+
 ```cron
-# crontab -e
-0 0 * * * cd ~/tideline/ops/mws && docker compose run --rm app python /srv/ops/backup.py >> ~/backup.log 2>&1
-0 4 * * 0 cd ~/tideline/ops/mws && docker compose run --rm app python /srv/ops/verify_backup.py >> ~/backup.log 2>&1
+30 0 * * * rsync -a /var/backups/tideline/ user@другой-хост:tideline-backups/ >> /var/log/tideline-backup.log 2>&1
 ```
+
+Восстановление (см. `docs/RESTORE.md`):
+
+```bash
+docker compose run --rm app sh -c 'AGE_SECRET_KEY=… FILE=/backups/tideline/production/<дата>/dump.pgc.age /srv/ops/restore.sh'
+```
+
+### 7.2. S3 (когда созреет)
+
+То же самое, но вместо `BACKUP_DIR` заполните `BACKUP_S3_ENDPOINT/BUCKET/
+ACCESS_KEY/SECRET_KEY` (бакет — например, MWS Object Storage, лучше в другом
+регионе/аккаунте, чем VM). Скрипты и раскладка ключей не меняются — старые
+локальные бэкапы можно просто залить в бакет как есть.
 
 ## Чек-лист
 

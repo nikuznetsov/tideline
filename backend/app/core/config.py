@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # если задан, /metrics требует Bearer-токен (иначе метрики публичны)
     metrics_token: str | None = None
 
+    backup_dir: str | None = None
     backup_s3_endpoint: str | None = None
     backup_s3_bucket: str | None = None
     backup_s3_access_key: str | None = None

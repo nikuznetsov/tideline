@@ -1,7 +1,9 @@
-"""Список и запуск бэкапов. Сами бэкапы делает ops/backup.py (cron-сервис);
-здесь — чтение состояния из S3 для /admin/backups и запуск по требованию."""
+"""Список и запуск бэкапов. Сами бэкапы делает ops/backup.py (cron);
+здесь — чтение состояния хранилища (BACKUP_DIR или S3) для /admin/backups
+и запуск по требованию."""
 
 import asyncio
+import datetime as dt
 import subprocess
 import sys
 from pathlib import Path
@@ -26,22 +28,43 @@ def _s3_client():
     )
 
 
+def _s3_items() -> list[dict]:
+    client, bucket = _s3_client()
+    resp = client.list_objects_v2(Bucket=bucket, Prefix="tideline/")
+    return [
+        {
+            "key": obj["Key"],
+            "size": obj["Size"],
+            "last_modified": obj["LastModified"].isoformat(),
+        }
+        for obj in resp.get("Contents", [])
+    ]
+
+
+def _local_items(root: Path) -> list[dict]:
+    return [
+        {
+            "key": str(p.relative_to(root)),
+            "size": p.stat().st_size,
+            "last_modified": dt.datetime.fromtimestamp(
+                p.stat().st_mtime, tz=dt.timezone.utc
+            ).isoformat(),
+        }
+        for p in sorted(root.rglob("*"))
+        if p.is_file()
+    ]
+
+
 async def list_backups() -> list[dict]:
+    settings = get_settings()
+
     def _list():
-        client, bucket = _s3_client()
-        resp = client.list_objects_v2(Bucket=bucket, Prefix="tideline/")
-        items = []
-        for obj in resp.get("Contents", []):
-            items.append(
-                {
-                    "key": obj["Key"],
-                    "size": obj["Size"],
-                    "last_modified": obj["LastModified"].isoformat(),
-                    "verified": obj["Key"].endswith(".verified"),
-                }
-            )
+        if settings.backup_dir:
+            items = _local_items(Path(settings.backup_dir))
+        else:
+            items = _s3_items()
         # статус верификации: рядом с dump.pgc.age лежит маркер .verified
-        verified_keys = {i["key"] for i in items if i["verified"]}
+        verified_keys = {i["key"] for i in items if i["key"].endswith(".verified")}
         for i in items:
             i["verified"] = f"{i['key']}.verified" in verified_keys
         return [i for i in items if not i["key"].endswith(".verified")]
