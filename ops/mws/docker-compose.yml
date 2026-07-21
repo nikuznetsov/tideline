@@ -13,12 +13,15 @@ services:
       POSTGRES_USER: tideline
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте в .env}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # в образе postgres:18 том — /var/lib/postgresql (PGDATA=…/18/docker),
+      # маунт на …/data оставил бы данные в анонимном томе
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tideline -d tideline"]
       interval: 5s
       timeout: 3s
-      retries: 12
+      retries: 24
+      start_period: 30s
 
   # Одноразовый шаг перед стартом: pre-deploy бэкап -> миграции -> (опц.) seed.
   # Жёсткая цепочка через && — как на Railway: без бэкапа миграции не едут.
