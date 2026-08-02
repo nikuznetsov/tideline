@@ -68,11 +68,26 @@ def _ensure_ws_index() -> None:
         op.create_index("ix_project_workspace_id", "project", ["workspace_id"])
 
 
+def _replace_lifecycle_check(old_check: str, new_check: str) -> None:
+    bind = op.get_bind()
+    if bind.dialect.name == "sqlite":
+        # SQLite: чек живёт в DDL таблицы, пересоздание через copy_from
+        with op.batch_alter_table("project", copy_from=_project_table(old_check)) as batch:
+            batch.drop_constraint("ck_project_lifecycle", type_="check")
+            batch.create_check_constraint("ck_project_lifecycle", new_check)
+        _ensure_ws_index()
+        return
+    # Postgres: чек может называться иначе или отсутствовать вовсе
+    # (прод-схема исторически создавалась без именованных чеков)
+    insp = sa.inspect(bind)
+    for ck in insp.get_check_constraints("project"):
+        if "lifecycle" in (ck.get("sqltext") or ""):
+            op.drop_constraint(ck["name"], "project", type_="check")
+    op.create_check_constraint("ck_project_lifecycle", "project", new_check)
+
+
 def upgrade() -> None:
-    with op.batch_alter_table("project", copy_from=_project_table(OLD_CHECK)) as batch:
-        batch.drop_constraint("ck_project_lifecycle", type_="check")
-        batch.create_check_constraint("ck_project_lifecycle", NEW_CHECK)
-    _ensure_ws_index()
+    _replace_lifecycle_check(OLD_CHECK, NEW_CHECK)
     op.add_column("project_update", sa.Column("on_date", sa.Date(), nullable=True))
     # у существующих апдейтов дата = день создания
     op.execute("UPDATE project_update SET on_date = date(created_at)")
@@ -84,7 +99,4 @@ def downgrade() -> None:
     with op.batch_alter_table("project_update") as batch:
         batch.drop_column("on_date")
     op.execute("UPDATE project SET lifecycle = 'paused' WHERE lifecycle = 'support'")
-    with op.batch_alter_table("project", copy_from=_project_table(NEW_CHECK)) as batch:
-        batch.drop_constraint("ck_project_lifecycle", type_="check")
-        batch.create_check_constraint("ck_project_lifecycle", OLD_CHECK)
-    _ensure_ws_index()
+    _replace_lifecycle_check(NEW_CHECK, OLD_CHECK)
