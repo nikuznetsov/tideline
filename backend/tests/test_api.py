@@ -305,6 +305,44 @@ async def test_viewer_adds_update_but_cannot_delete_or_rename(
     assert resp.status_code == 403
 
 
+async def test_delete_project_removes_allocations(auth_client, team, monday):
+    pid = str(team["project"].id)
+    mid = str(team["members"][0].id)
+    resp = await auth_client.post(
+        "/api/v1/w/xops/allocations",
+        json={"member_id": mid, "project_id": pid, "day": monday.isoformat(), "load": "1.0"},
+    )
+    assert resp.status_code == 200
+
+    resp = await auth_client.delete(f"/api/v1/w/xops/projects/{pid}")
+    assert resp.status_code == 200
+    assert resp.json()["allocations_removed"] == 1
+
+    # проект пропал из реестра, карточка отвечает 404
+    codes = [p["code"] for p in (await auth_client.get("/api/v1/w/xops/projects")).json()]
+    assert "TEST" not in codes
+    assert (await auth_client.get(f"/api/v1/w/xops/projects/{pid}")).status_code == 404
+
+    # загрузка снята с таймлайна
+    tl = (
+        await auth_client.get(
+            f"/api/v1/w/xops/timeline?from={monday}&to={monday + timedelta(days=6)}"
+        )
+    ).json()
+    assert tl["allocations"] == []
+
+    # удаление записано в аудит с автором и числом снятых аллокаций
+    log = (
+        await auth_client.get(
+            "/api/v1/w/xops/audit",
+            params={"entity_type": "project", "entity_id": pid},
+        )
+    ).json()
+    dels = [e for e in log if e["action"] == "soft_delete"]
+    assert dels and dels[0]["actor_name"] == "Тимлид"
+    assert dels[0]["before"]["allocations_removed"] == 1
+
+
 async def test_support_lifecycle_and_rename_audited(auth_client, team):
     pid = str(team["project"].id)
     resp = await auth_client.patch(

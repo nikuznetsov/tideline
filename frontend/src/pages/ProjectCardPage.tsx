@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { getWorkspaceSlug, wapi } from "../api/client";
 import type { ProjectDetail, ProjectLoad } from "../api/types";
 import { addDays, currentMonday, rangeLabel, todayISO } from "../lib/dates";
@@ -37,6 +37,7 @@ export function ProjectCardPage() {
   const { id } = useParams<{ id: string }>();
   const { canEdit, wsPath } = useWorkspace();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const from = currentMonday();
   const to = addDays(from, 13);
 
@@ -61,6 +62,14 @@ export function ProjectCardPage() {
     mutationFn: (updateId: string) =>
       wapi.delete(`/projects/${id}/updates/${updateId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", id] }),
+  });
+  const deleteProject = useMutation({
+    mutationFn: () => wapi.delete(`/projects/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["timeline"] });
+      navigate(wsPath("/projects"));
+    },
   });
 
   const [updateText, setUpdateText] = useState("");
@@ -363,6 +372,25 @@ export function ProjectCardPage() {
           </div>
         )}
       </div>
+
+      {/* удаление проекта — editor/owner, с записью в историю изменений */}
+      {canEdit && (
+        <div className="mt-4 text-right">
+          <button
+            onClick={() => {
+              if (
+                confirm(
+                  `Удалить проект ${p.code} · ${p.name}? Вся его загрузка будет снята с таймлайна. Действие попадёт в историю изменений.`,
+                )
+              )
+                deleteProject.mutate();
+            }}
+            className="text-xs text-muted underline hover:text-mts"
+          >
+            Удалить проект
+          </button>
+        </div>
+      )}
     </div>
   );
 }

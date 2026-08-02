@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import (
@@ -230,10 +230,21 @@ async def delete_project(
     if not project:
         raise HTTPException(404, "Проект не найден")
     project.deleted_at = datetime.now(timezone.utc)
+    # загрузка удалённого проекта осталась бы на таймлайне безымянными
+    # строками — снимаем вместе с проектом (история недель живёт в снапшотах)
+    removed = (
+        await db.execute(
+            delete(Allocation).where(
+                Allocation.workspace_id == ws.id,
+                Allocation.project_id == project.id,
+            )
+        )
+    ).rowcount
     record_audit(db, ws.id, user.id, "project", project.id, "soft_delete",
-                 {"code": project.code}, None)
+                 {"code": project.code, "name": project.name,
+                  "allocations_removed": removed}, None)
     await db.commit()
-    return {"ok": True}
+    return {"ok": True, "allocations_removed": removed}
 
 
 async def _refresh_weekly_update(
