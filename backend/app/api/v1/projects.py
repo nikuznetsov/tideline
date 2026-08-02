@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_workspace, get_workspace_editor
+from app.core.deps import (
+    get_current_user,
+    get_my_role,
+    get_workspace,
+    get_workspace_editor,
+)
 from app.db.models import (
     Allocation,
     AppUser,
@@ -147,22 +152,23 @@ async def get_project(
         .all()
     )
     updates = (
-        (
-            await db.execute(
-                select(ProjectUpdate)
-                .where(
-                    ProjectUpdate.workspace_id == ws.id,
-                    ProjectUpdate.project_id == project_id,
-                )
-                .order_by(ProjectUpdate.created_at.desc())
+        await db.execute(
+            select(ProjectUpdate, AppUser.name)
+            .outerjoin(AppUser, AppUser.id == ProjectUpdate.created_by)
+            .where(
+                ProjectUpdate.workspace_id == ws.id,
+                ProjectUpdate.project_id == project_id,
             )
+            .order_by(ProjectUpdate.on_date.desc(), ProjectUpdate.created_at.desc())
         )
-        .scalars()
-        .all()
-    )
+    ).all()
     detail = ProjectDetail.model_validate(project)
     detail.milestones = [MilestoneOut.model_validate(m) for m in milestones]
-    detail.updates = [ProjectUpdateOut.model_validate(u) for u in updates]
+    detail.updates = []
+    for u, author_name in updates:
+        item = ProjectUpdateOut.model_validate(u)
+        item.author_name = author_name
+        detail.updates.append(item)
     return detail
 
 
@@ -230,10 +236,74 @@ async def delete_project(
     return {"ok": True}
 
 
+async def _refresh_weekly_update(
+    db: AsyncSession, ws_id: uuid.UUID, project: Project
+) -> None:
+    """weekly_update проекта — тело самого свежего апдейта (по дате)."""
+    latest = (
+        await db.execute(
+            select(ProjectUpdate)
+            .where(
+                ProjectUpdate.workspace_id == ws_id,
+                ProjectUpdate.project_id == project.id,
+            )
+            .order_by(ProjectUpdate.on_date.desc(), ProjectUpdate.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    project.weekly_update = latest.body if latest else None
+
+
+# апдейт недели может добавить любой участник пространства, включая viewer
 @router.post("/{project_id}/updates", response_model=ProjectUpdateOut)
 async def add_update(
     project_id: uuid.UUID,
     body: ProjectUpdateIn,
+    db: AsyncSession = Depends(get_db),
+    ws: Workspace = Depends(get_workspace),
+    user: AppUser = Depends(get_current_user),
+    role: str = Depends(get_my_role),
+):
+    project = (
+        await db.execute(
+            select(Project).where(
+                Project.workspace_id == ws.id,
+                Project.id == project_id,
+                Project.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not project:
+        raise HTTPException(404, "Проект не найден")
+    # текст апдейта пишет любой участник, но менять светофор viewer не может
+    if body.health_after and role == "viewer":
+        raise HTTPException(403, "Смена светофора доступна редактору и владельцу")
+    update = ProjectUpdate(
+        workspace_id=ws.id,
+        project_id=project_id,
+        body=body.body,
+        health_after=body.health_after,
+        on_date=body.on_date or date.today(),
+        created_by=user.id,
+    )
+    db.add(update)
+    await db.flush()
+    await _refresh_weekly_update(db, ws.id, project)
+    project.status_updated_at = datetime.now(timezone.utc)
+    if body.health_after:
+        project.health = body.health_after
+    record_audit(db, ws.id, user.id, "project", project.id, "add_update",
+                 None, {"body": body.body, "on_date": update.on_date.isoformat()})
+    await db.commit()
+    out = ProjectUpdateOut.model_validate(update)
+    out.author_name = user.name
+    return out
+
+
+@router.delete("/{project_id}/updates/{update_id}")
+async def delete_update(
+    project_id: uuid.UUID,
+    update_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
@@ -249,22 +319,24 @@ async def add_update(
     ).scalar_one_or_none()
     if not project:
         raise HTTPException(404, "Проект не найден")
-    update = ProjectUpdate(
-        workspace_id=ws.id,
-        project_id=project_id,
-        body=body.body,
-        health_after=body.health_after,
-        created_by=user.id,
-    )
-    db.add(update)
-    project.weekly_update = body.body
-    project.status_updated_at = datetime.now(timezone.utc)
-    if body.health_after:
-        project.health = body.health_after
-    record_audit(db, ws.id, user.id, "project", project.id, "add_update",
-                 None, {"body": body.body})
+    update = (
+        await db.execute(
+            select(ProjectUpdate).where(
+                ProjectUpdate.workspace_id == ws.id,
+                ProjectUpdate.project_id == project_id,
+                ProjectUpdate.id == update_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not update:
+        raise HTTPException(404, "Апдейт не найден")
+    record_audit(db, ws.id, user.id, "project", project.id, "delete_update",
+                 {"body": update.body, "on_date": update.on_date.isoformat()}, None)
+    await db.delete(update)
+    await db.flush()
+    await _refresh_weekly_update(db, ws.id, project)
     await db.commit()
-    return update
+    return {"ok": True}
 
 
 @router.put("/{project_id}/milestones", response_model=list[MilestoneOut])

@@ -3,7 +3,7 @@ import { FormEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getWorkspaceSlug, wapi } from "../api/client";
 import type { ProjectDetail, ProjectLoad } from "../api/types";
-import { addDays, currentMonday, rangeLabel } from "../lib/dates";
+import { addDays, currentMonday, rangeLabel, todayISO } from "../lib/dates";
 import { AuditHistory } from "../features/AuditHistory";
 import { fmtNum } from "../lib/format";
 import { Markdown } from "../lib/markdown";
@@ -18,6 +18,7 @@ const HEALTH_LABEL: Record<string, string> = {
 const HEALTH_OPTIONS = ["green", "amber", "red"];
 const LIFECYCLE_OPTIONS: [string, string][] = [
   ["active", "Активен"],
+  ["support", "Поддержка"],
   ["paused", "Приостановлен"],
   ["finished", "Завершён"],
 ];
@@ -52,15 +53,23 @@ export function ProjectCardPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", id] }),
   });
   const addUpdate = useMutation({
-    mutationFn: (body: { body: string; health_after: string | null }) =>
+    mutationFn: (body: { body: string; health_after: string | null; on_date: string }) =>
       wapi.post(`/projects/${id}/updates`, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", id] }),
+  });
+  const deleteUpdate = useMutation({
+    mutationFn: (updateId: string) =>
+      wapi.delete(`/projects/${id}/updates/${updateId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", id] }),
   });
 
   const [updateText, setUpdateText] = useState("");
   const [updateHealth, setUpdateHealth] = useState<string>("");
+  const [updateDate, setUpdateDate] = useState(todayISO());
   const [editField, setEditField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
 
   if (project.isLoading) return <p className="py-10 text-center text-muted">Загрузка…</p>;
@@ -75,9 +84,20 @@ export function ProjectCardPage() {
   function submitUpdate(e: FormEvent) {
     e.preventDefault();
     if (!updateText.trim()) return;
-    addUpdate.mutate({ body: updateText.trim(), health_after: updateHealth || null });
+    addUpdate.mutate({
+      body: updateText.trim(),
+      health_after: updateHealth || null,
+      on_date: updateDate || todayISO(),
+    });
     setUpdateText("");
     setUpdateHealth("");
+    setUpdateDate(todayISO());
+  }
+
+  function saveName() {
+    const name = nameDraft.trim();
+    setEditingName(false);
+    if (name && name !== p.name) patch.mutate({ name });
   }
 
   return (
@@ -89,9 +109,51 @@ export function ProjectCardPage() {
       {/* ---- верх: живой статус ---- */}
       <div className="rounded-lg border border-line bg-surface p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-wide text-lg font-bold">
-            {p.code} · {p.name}
-          </h1>
+          {editingName ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveName();
+              }}
+              className="flex items-center gap-2"
+            >
+              <span className="font-wide text-lg font-bold">{p.code} ·</span>
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => e.key === "Escape" && setEditingName(false)}
+                className="rounded border border-line bg-page px-2 py-1 font-wide text-lg font-bold"
+                aria-label="Название проекта"
+              />
+              <button className="text-xs font-medium text-mts underline">
+                сохранить
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingName(false)}
+                className="text-xs text-muted underline"
+              >
+                отмена
+              </button>
+            </form>
+          ) : (
+            <h1 className="font-wide text-lg font-bold">
+              {p.code} · {p.name}
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setNameDraft(p.name);
+                    setEditingName(true);
+                  }}
+                  className="ml-2 align-middle text-xs font-normal text-muted underline hover:text-ink"
+                  title="Переименовать проект"
+                >
+                  ✎
+                </button>
+              )}
+            </h1>
+          )}
           <select
             disabled={!canEdit}
             value={p.health}
@@ -152,42 +214,65 @@ export function ProjectCardPage() {
           )}
         </div>
 
-        {/* лог апдейтов */}
+        {/* лог апдейтов — писать может любой участник пространства */}
         <div className="mt-4">
-          {canEdit && (
-          <form onSubmit={submitUpdate} className="mb-3 flex gap-2">
+          <form onSubmit={submitUpdate} className="mb-3 flex flex-wrap gap-2">
             <input
               value={updateText}
               onChange={(e) => setUpdateText(e.target.value)}
               placeholder="Апдейт недели: что изменилось…"
-              className="flex-1 rounded border border-line bg-page px-3 py-2 text-sm"
+              className="min-w-52 flex-1 rounded border border-line bg-page px-3 py-2 text-sm"
             />
-            <select
-              value={updateHealth}
-              onChange={(e) => setUpdateHealth(e.target.value)}
-              className="rounded border border-line bg-page px-2 text-sm"
-              title="Сменить светофор вместе с апдейтом"
-            >
-              <option value="">Светофор без изменений</option>
-              {HEALTH_OPTIONS.map((h) => (
-                <option key={h} value={h}>{HEALTH[h]} {HEALTH_LABEL[h]}</option>
-              ))}
-            </select>
+            <input
+              type="date"
+              value={updateDate}
+              max={todayISO()}
+              onChange={(e) => setUpdateDate(e.target.value)}
+              className="rounded border border-line bg-page px-2 py-2 text-sm font-nums"
+              title="Дата апдейта — по умолчанию сегодня"
+            />
+            {canEdit && (
+              <select
+                value={updateHealth}
+                onChange={(e) => setUpdateHealth(e.target.value)}
+                className="rounded border border-line bg-page px-2 text-sm"
+                title="Сменить светофор вместе с апдейтом"
+              >
+                <option value="">Светофор без изменений</option>
+                {HEALTH_OPTIONS.map((h) => (
+                  <option key={h} value={h}>{HEALTH[h]} {HEALTH_LABEL[h]}</option>
+                ))}
+              </select>
+            )}
             <button className="rounded bg-ink px-3 py-2 text-sm font-medium text-surface">
               Записать
             </button>
           </form>
-          )}
           <div className="space-y-2">
             {p.updates.map((u) => (
-              <div key={u.id} className="flex gap-3 text-sm">
-                <span className="w-20 shrink-0 text-xs text-muted font-nums">
-                  {new Date(u.created_at).toLocaleDateString("ru")}
+              <div key={u.id} className="group flex gap-3 text-sm">
+                <span className="w-20 shrink-0 text-xs leading-5 text-muted font-nums">
+                  {new Date(`${u.on_date}T00:00:00`).toLocaleDateString("ru")}
                 </span>
-                <span>
+                <span className="min-w-0">
                   {u.health_after && <span className="mr-1">{HEALTH[u.health_after]}</span>}
                   {u.body}
+                  {u.author_name && (
+                    <span className="ml-2 text-xs text-muted">— {u.author_name}</span>
+                  )}
                 </span>
+                {canEdit && (
+                  <button
+                    onClick={() => {
+                      if (confirm("Удалить этот апдейт? Действие попадёт в историю изменений."))
+                        deleteUpdate.mutate(u.id);
+                    }}
+                    className="ml-auto shrink-0 text-xs text-muted opacity-0 transition-opacity hover:text-mts group-hover:opacity-100"
+                    title="Удалить апдейт"
+                  >
+                    удалить
+                  </button>
+                )}
               </div>
             ))}
             {p.updates.length === 0 && (

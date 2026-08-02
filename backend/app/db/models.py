@@ -160,7 +160,8 @@ class Project(Base, TimestampMixin):
     lifecycle: Mapped[str] = mapped_column(
         Text,
         CheckConstraint(
-            "lifecycle in ('active','paused','finished')", name="ck_project_lifecycle"
+            "lifecycle in ('active','support','paused','finished')",
+            name="ck_project_lifecycle",
         ),
         default="active",
         nullable=False,
@@ -198,6 +199,8 @@ class ProjectUpdate(Base):
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     health_after: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # к какой дате относится апдейт; автор может поставить задним числом
+    on_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("app_user.id"), nullable=True
     )

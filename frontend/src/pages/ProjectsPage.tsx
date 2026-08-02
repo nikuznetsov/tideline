@@ -8,6 +8,7 @@ import { useWorkspace } from "../workspace";
 const HEALTH: Record<string, string> = { green: "🟢", amber: "🟡", red: "🔴" };
 const LIFECYCLE: Record<string, string> = {
   active: "Активен",
+  support: "Поддержка",
   paused: "Приостановлен",
   finished: "Завершён",
 };

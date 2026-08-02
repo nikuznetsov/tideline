@@ -132,7 +132,12 @@ async def export_timeline_csv(
 
 
 HEALTH_LABEL = {"green": "🟢", "amber": "🟡", "red": "🔴"}
-LIFECYCLE_LABEL = {"active": "Активен", "paused": "Приостановлен", "finished": "Завершён"}
+LIFECYCLE_LABEL = {
+    "active": "Активен",
+    "support": "Поддержка",
+    "paused": "Приостановлен",
+    "finished": "Завершён",
+}
 
 
 async def export_projects_xlsx(db: AsyncSession, workspace_id: uuid.UUID) -> bytes:

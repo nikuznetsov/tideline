@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from app.db.models import Allocation
@@ -222,6 +222,112 @@ async def test_project_registry_and_card(auth_client, team):
     detail = resp.json()
     assert detail["health"] == "amber"
     assert detail["updates"][0]["body"] == "Новый апдейт"
+
+
+async def test_weekly_update_date_author_and_delete(auth_client, team):
+    pid = str(team["project"].id)
+    # дата по умолчанию — сегодня, автор заполняется
+    resp = await auth_client.post(
+        f"/api/v1/w/xops/projects/{pid}/updates", json={"body": "Сегодняшний"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["on_date"] == date.today().isoformat()
+    assert resp.json()["author_name"] == "Тимлид"
+
+    # апдейт задним числом не перетирает сводку weekly_update
+    resp = await auth_client.post(
+        f"/api/v1/w/xops/projects/{pid}/updates",
+        json={"body": "Задним числом", "on_date": "2026-01-05"},
+    )
+    old_id = resp.json()["id"]
+    detail = (await auth_client.get(f"/api/v1/w/xops/projects/{pid}")).json()
+    assert detail["weekly_update"] == "Сегодняшний"
+    assert [u["body"] for u in detail["updates"]] == ["Сегодняшний", "Задним числом"]
+
+    # удаление апдейта доступно editor/owner и пересчитывает сводку
+    resp = await auth_client.delete(f"/api/v1/w/xops/projects/{pid}/updates/{old_id}")
+    assert resp.status_code == 200
+    detail = (await auth_client.get(f"/api/v1/w/xops/projects/{pid}")).json()
+    assert [u["body"] for u in detail["updates"]] == ["Сегодняшний"]
+    assert detail["weekly_update"] == "Сегодняшний"
+
+    # аудит: добавление и удаление записаны с именем автора
+    log = (
+        await auth_client.get(
+            "/api/v1/w/xops/audit",
+            params={"entity_type": "project", "entity_id": pid},
+        )
+    ).json()
+    actions = [e["action"] for e in log]
+    assert "add_update" in actions and "delete_update" in actions
+    assert all(e["actor_name"] == "Тимлид" for e in log)
+
+
+async def test_viewer_adds_update_but_cannot_delete_or_rename(
+    client2, db, team, workspace, transport
+):
+    from app.core.security import hash_password
+    from app.db.models import AppUser, Membership
+
+    viewer = AppUser(
+        email="viewer@example.com",
+        name="Виктор",
+        password_hash=hash_password("secret-123"),
+    )
+    db.add(viewer)
+    await db.flush()
+    db.add(Membership(workspace_id=workspace.id, user_id=viewer.id, role="viewer"))
+    await db.commit()
+    resp = await client2.post(
+        "/api/v1/auth/login",
+        json={"email": "viewer@example.com", "password": "secret-123"},
+    )
+    assert resp.status_code == 200
+
+    pid = str(team["project"].id)
+    resp = await client2.post(
+        f"/api/v1/w/xops/projects/{pid}/updates", json={"body": "От вьюера"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["author_name"] == "Виктор"
+    upd_id = resp.json()["id"]
+
+    # удалять апдейты и переименовывать проект viewer не может
+    resp = await client2.delete(f"/api/v1/w/xops/projects/{pid}/updates/{upd_id}")
+    assert resp.status_code == 403
+    resp = await client2.patch(f"/api/v1/w/xops/projects/{pid}", json={"name": "Новое"})
+    assert resp.status_code == 403
+    # и не может сменить светофор через апдейт
+    resp = await client2.post(
+        f"/api/v1/w/xops/projects/{pid}/updates",
+        json={"body": "Хочу красный", "health_after": "red"},
+    )
+    assert resp.status_code == 403
+
+
+async def test_support_lifecycle_and_rename_audited(auth_client, team):
+    pid = str(team["project"].id)
+    resp = await auth_client.patch(
+        f"/api/v1/w/xops/projects/{pid}", json={"lifecycle": "support"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["lifecycle"] == "support"
+    # проекты на поддержке видны в реестре по умолчанию
+    codes = [p["code"] for p in (await auth_client.get("/api/v1/w/xops/projects")).json()]
+    assert "TEST" in codes
+
+    resp = await auth_client.patch(
+        f"/api/v1/w/xops/projects/{pid}", json={"name": "Переименован"}
+    )
+    assert resp.json()["name"] == "Переименован"
+    log = (
+        await auth_client.get(
+            "/api/v1/w/xops/audit",
+            params={"entity_type": "project", "entity_id": pid},
+        )
+    ).json()
+    renames = [e for e in log if e["action"] == "update" and "name" in (e["after"] or {})]
+    assert renames and renames[0]["before"]["name"] == "Тестовый проект"
 
 
 async def test_week_close_endpoint(auth_client, team, monday):

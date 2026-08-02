@@ -6,6 +6,7 @@ interface AuditEntry {
   entity_type: string;
   entity_id: string | null;
   action: string;
+  actor_name: string | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   created_at: string;
@@ -17,6 +18,7 @@ const ACTION_LABEL: Record<string, string> = {
   delete: "удаление",
   soft_delete: "удаление",
   add_update: "апдейт",
+  delete_update: "апдейт удалён",
   replace_milestones: "вехи",
   close_week: "закрытие недели",
   undo_close_week: "откат закрытия",
@@ -81,6 +83,9 @@ export function AuditHistory({
           </span>
           <span className="w-24 shrink-0 font-medium">
             {ACTION_LABEL[e.action] ?? e.action}
+          </span>
+          <span className="w-28 shrink-0 truncate" title={e.actor_name ?? undefined}>
+            {e.actor_name ?? "—"}
           </span>
           <span className="min-w-0 break-words text-muted">{diffLine(e)}</span>
         </div>

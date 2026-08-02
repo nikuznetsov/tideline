@@ -532,7 +532,7 @@ export function TimelineGrid({
                             key={d}
                             role="gridcell"
                             aria-selected={isFocus}
-                            className={`relative flex cursor-cell items-center justify-center border-l border-line/60 py-0.5 text-xs font-nums ${
+                            className={`group relative flex cursor-cell items-center justify-center border-l border-line/60 py-0.5 text-xs font-nums ${
                               weekStarts.has(d) && d !== days[0] ? "week-gap" : ""
                             } ${d === tidelineDay ? "tideline-edge" : ""} ${
                               off ? "bg-[var(--cell-off)] cursor-default" : ""
@@ -596,13 +596,20 @@ export function TimelineGrid({
                             ) : (
                               <>
                                 {!off && !absent && load > 0 ? fmtLoad(load) : ""}
-                                {isFocus && !readOnly && !off && (
+                                {/* маркер растяжки как в Excel: виден на фокусе
+                                    и при наведении на заполненную ячейку */}
+                                {!readOnly && !off && !absent && (isFocus || load > 0) && (
                                   <span
-                                    className="absolute -bottom-0.5 -right-0.5 z-10 h-2 w-2 cursor-ew-resize rounded-sm bg-[var(--accent)]"
-                                    title="Протянуть по горизонтали"
+                                    className={`absolute -bottom-0.5 -right-0.5 z-10 h-2.5 w-2.5 cursor-ew-resize rounded-sm border border-surface bg-[var(--accent)] ${
+                                      isFocus ? "" : "opacity-0 group-hover:opacity-100"
+                                    }`}
+                                    title="Потянуть, чтобы растянуть значение по дням"
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
                                       e.preventDefault();
+                                      containerRef.current?.focus();
+                                      setFocus({ r, c });
+                                      setAnchor(null);
                                       fillDrag.current = { r, c0: c, c1: c };
                                       setFillPreview({ r, c0: c, c1: c });
                                     }}
@@ -623,7 +630,9 @@ export function TimelineGrid({
                 <AddProjectRow
                   gridCols={gridCols}
                   needScroll={needScroll}
-                  projects={data.projects.filter((p) => p.lifecycle === "active")}
+                  projects={data.projects.filter(
+                    (p) => p.lifecycle === "active" || p.lifecycle === "support",
+                  )}
                   existing={new Set(memberRows.map((r) => r.projectId))}
                   onAdd={(projectId) => onAddRow(tm.member.id, projectId)}
                 />

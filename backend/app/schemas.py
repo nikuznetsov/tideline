@@ -342,12 +342,16 @@ class ProjectUpdateOut(BaseModel):
     id: uuid.UUID
     body: str
     health_after: str | None
+    on_date: date
+    author_name: str | None = None
     created_at: datetime
 
 
 class ProjectUpdateIn(BaseModel):
     body: str
     health_after: Literal["green", "amber", "red"] | None = None
+    # дата апдейта; по умолчанию — сегодня
+    on_date: date | None = None
 
 
 class ProjectOut(BaseModel):
@@ -383,7 +387,7 @@ class ProjectCreate(BaseModel):
 class ProjectPatch(BaseModel):
     code: str | None = None
     name: str | None = None
-    lifecycle: Literal["active", "paused", "finished"] | None = None
+    lifecycle: Literal["active", "support", "paused", "finished"] | None = None
     health: Literal["green", "amber", "red"] | None = None
     weekly_update: str | None = None
     goal: str | None = None

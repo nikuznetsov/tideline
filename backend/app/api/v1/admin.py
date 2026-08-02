@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_superuser, get_current_user, get_workspace
-from app.db.models import AuditLog, Workspace
+from app.db.models import AppUser, AuditLog, Workspace
 from app.db.session import get_db
 from app.services.backups import list_backups, run_backup_now
 
@@ -39,7 +39,8 @@ async def audit(
     _user=Depends(get_current_user),
 ):
     q = (
-        select(AuditLog)
+        select(AuditLog, AppUser.name)
+        .outerjoin(AppUser, AppUser.id == AuditLog.actor_user_id)
         .where(AuditLog.workspace_id == ws.id)
         .order_by(AuditLog.created_at.desc())
         .limit(limit)
@@ -48,16 +49,17 @@ async def audit(
         q = q.where(AuditLog.entity_type == entity_type)
     if entity_id:
         q = q.where(AuditLog.entity_id == entity_id)
-    rows = (await db.execute(q)).scalars().all()
+    rows = (await db.execute(q)).all()
     return [
         {
             "id": r.id,
             "entity_type": r.entity_type,
             "entity_id": str(r.entity_id) if r.entity_id else None,
             "action": r.action,
+            "actor_name": actor_name,
             "before": r.before,
             "after": r.after,
             "created_at": r.created_at.isoformat(),
         }
-        for r in rows
+        for r, actor_name in rows
     ]

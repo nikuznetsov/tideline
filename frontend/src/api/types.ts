@@ -119,6 +119,8 @@ export interface ProjectUpdateEntry {
   id: string;
   body: string;
   health_after: string | null;
+  on_date: string;
+  author_name: string | null;
   created_at: string;
 }
 
