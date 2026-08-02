@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getWorkspaceSlug, wapi } from "../api/client";
-import type { ProjectDetail, ProjectLoad } from "../api/types";
+import type { ProjectDetail, ProjectLoad, ProjectUpdateEntry } from "../api/types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { addDays, currentMonday, rangeLabel, todayISO } from "../lib/dates";
 import { AuditHistory } from "../features/AuditHistory";
 import { fmtNum } from "../lib/format";
@@ -80,6 +81,8 @@ export function ProjectCardPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [deletingProject, setDeletingProject] = useState(false);
+  const [deletingUpdate, setDeletingUpdate] = useState<ProjectUpdateEntry | null>(null);
 
   if (project.isLoading) return <p className="py-10 text-center text-muted">Загрузка…</p>;
   if (!project.data)
@@ -272,10 +275,7 @@ export function ProjectCardPage() {
                 </span>
                 {canEdit && (
                   <button
-                    onClick={() => {
-                      if (confirm("Удалить этот апдейт? Действие попадёт в историю изменений."))
-                        deleteUpdate.mutate(u.id);
-                    }}
+                    onClick={() => setDeletingUpdate(u)}
                     className="ml-auto shrink-0 text-xs text-muted opacity-0 transition-opacity hover:text-mts group-hover:opacity-100"
                     title="Удалить апдейт"
                   >
@@ -377,19 +377,46 @@ export function ProjectCardPage() {
       {canEdit && (
         <div className="mt-4 text-right">
           <button
-            onClick={() => {
-              if (
-                confirm(
-                  `Удалить проект ${p.code} · ${p.name}? Вся его загрузка будет снята с таймлайна. Действие попадёт в историю изменений.`,
-                )
-              )
-                deleteProject.mutate();
-            }}
+            onClick={() => setDeletingProject(true)}
             className="text-xs text-muted underline hover:text-mts"
           >
             Удалить проект
           </button>
         </div>
+      )}
+
+      {deletingProject && (
+        <ConfirmDialog
+          title="Удалить проект"
+          message={
+            <>
+              Проект <b>{p.code} · {p.name}</b> будет удалён, вся его загрузка
+              снимется с таймлайна. Действие попадёт в историю изменений.
+            </>
+          }
+          confirmLabel="Удалить"
+          verifyText={p.code}
+          onConfirm={() => deleteProject.mutate()}
+          onClose={() => setDeletingProject(false)}
+        />
+      )}
+      {deletingUpdate && (
+        <ConfirmDialog
+          title="Удалить апдейт"
+          message={
+            <>
+              Удалить апдейт от{" "}
+              <b className="font-nums">
+                {new Date(`${deletingUpdate.on_date}T00:00:00`).toLocaleDateString("ru")}
+              </b>
+              {deletingUpdate.author_name && <> ({deletingUpdate.author_name})</>}?
+              Действие попадёт в историю изменений.
+            </>
+          }
+          confirmLabel="Удалить"
+          onConfirm={() => deleteUpdate.mutate(deletingUpdate.id)}
+          onClose={() => setDeletingUpdate(null)}
+        />
       )}
     </div>
   );
