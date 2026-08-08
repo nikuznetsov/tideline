@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { wapi, workspaceUrl } from "../api/client";
+import { LoadLegend } from "../components/timeline/LoadLegend";
 import { TimelineGrid } from "../components/timeline/TimelineGrid";
 import { useTimelineController } from "../components/timeline/useTimelineController";
 import { AbsencePanel } from "../features/AbsencePanel";
@@ -255,20 +256,31 @@ export function TimelinePage() {
           </div>
         )}
         {data && data.members.length > 0 && (
-          <TimelineGrid
-            data={data}
-            setCells={setCells}
-            undo={undo}
-            redo={redo}
-            readOnly={!canEdit}
-            extraRows={extraRows}
-            onAddRow={(memberId, projectId) =>
-              setExtraRows((s) => ({
-                ...s,
-                [memberId]: [...(s[memberId] ?? []), projectId],
-              }))
-            }
-          />
+          <>
+            <div className="mb-2">
+              <LoadLegend />
+            </div>
+            <TimelineGrid
+              data={data}
+              setCells={setCells}
+              undo={undo}
+              redo={redo}
+              readOnly={!canEdit}
+              extraRows={extraRows}
+              onAddRow={(memberId, projectId) =>
+                setExtraRows((s) => ({
+                  ...s,
+                  [memberId]: [...(s[memberId] ?? []), projectId],
+                }))
+              }
+              onRemoveRow={(memberId, projectId) =>
+                setExtraRows((s) => ({
+                  ...s,
+                  [memberId]: (s[memberId] ?? []).filter((p) => p !== projectId),
+                }))
+              }
+            />
+          </>
         )}
       </div>
 

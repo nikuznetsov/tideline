@@ -161,7 +161,7 @@ async def build_timeline(
                 member_id=a.member_id,
                 project_id=a.project_id,
                 day=a.day,
-                load=Decimal(str(a.load)),
+                category=a.category,
                 note=None if public else a.note,
             )
             for a in allocations

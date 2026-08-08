@@ -232,6 +232,7 @@ async def create_absence(
         raise HTTPException(404, "Сотрудник не найден")
 
     from app.db.models import Allocation
+    from app.domain.categories import CATEGORY_WEIGHTS
 
     conflicting = (
         (
@@ -249,7 +250,7 @@ async def create_absence(
     )
     if conflicting and not body.clear_allocations:
         days = sorted({a.day for a in conflicting})
-        total = sum(float(a.load) for a in conflicting)
+        total = float(sum(CATEGORY_WEIGHTS[a.category] for a in conflicting))
         raise HTTPException(
             409,
             detail={
@@ -270,7 +271,7 @@ async def create_absence(
                     "member_id": str(a.member_id),
                     "project_id": str(a.project_id),
                     "day": a.day.isoformat(),
-                    "load": str(a.load),
+                    "category": a.category,
                 },
                 None,
             )

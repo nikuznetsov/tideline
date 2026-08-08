@@ -242,7 +242,10 @@ class Allocation(Base, TimestampMixin):
         UniqueConstraint(
             "workspace_id", "member_id", "project_id", "day", name="uq_allocation_cell"
         ),
-        CheckConstraint("load > 0 AND load <= 1", name="ck_allocation_load"),
+        CheckConstraint(
+            "category in ('background','half','most','full')",
+            name="ck_allocation_category",
+        ),
         Index("ix_allocation_ws_day", "workspace_id", "day"),
         Index("ix_allocation_ws_member_day", "workspace_id", "member_id", "day"),
         Index("ix_allocation_ws_project_day", "workspace_id", "project_id", "day"),
@@ -259,7 +262,7 @@ class Allocation(Base, TimestampMixin):
         Uuid, ForeignKey("project.id"), nullable=False
     )
     day: Mapped[date] = mapped_column(Date, nullable=False)
-    load: Mapped[float] = mapped_column(Numeric(3, 2), nullable=False)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("app_user.id"), nullable=True

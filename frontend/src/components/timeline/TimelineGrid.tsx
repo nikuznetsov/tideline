@@ -7,17 +7,27 @@ import {
   useState,
 } from "react";
 import { Link } from "react-router-dom";
+import { ConfirmDialog } from "../ConfirmDialog";
 import { useWorkspaceMaybe } from "../../workspace";
 import type { TimelineProject, TimelineResponse } from "../../api/types";
 import { dayLabel, isWeekendISO } from "../../lib/dates";
 import { fmtLoad, fmtNum } from "../../lib/format";
+import {
+  CATEGORY_GLYPH,
+  CATEGORY_KEY,
+  CATEGORY_LABEL,
+  CATEGORY_ORDER,
+  categoryCellClass,
+  summaryLoadClass,
+  type LoadCategory,
+} from "../../lib/categories";
 import type { CellChange } from "./useTimelineController";
 
-const QUICK_KEYS: Record<string, string> = {
-  "1": "1",
-  "5": "0.5",
-  "2": "0.25",
-  "7": "0.75",
+const QUICK_KEYS: Record<string, LoadCategory> = {
+  "1": "full",
+  "5": "half",
+  "2": "background",
+  "7": "most",
 };
 
 interface GridRow {
@@ -34,6 +44,7 @@ interface Props {
   /** дополнительные (ещё пустые) строки проекта у сотрудника */
   extraRows: Record<string, string[]>;
   onAddRow: (memberId: string, projectId: string) => void;
+  onRemoveRow?: (memberId: string, projectId: string) => void;
   readOnly?: boolean;
 }
 
@@ -44,6 +55,7 @@ export function TimelineGrid({
   redo,
   extraRows,
   onAddRow,
+  onRemoveRow,
   readOnly = false,
 }: Props) {
   const wsCtx = useWorkspaceMaybe();
@@ -56,7 +68,13 @@ export function TimelineGrid({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [focus, setFocus] = useState<{ r: number; c: number } | null>(null);
   const [anchor, setAnchor] = useState<{ r: number; c: number } | null>(null);
-  const [editor, setEditor] = useState<{ r: number; c: number; value: string } | null>(null);
+  const [picker, setPicker] = useState<{ r: number; c: number } | null>(null);
+  const [removeRow, setRemoveRow] = useState<{
+    memberId: string;
+    projectId: string;
+    code: string;
+    allocatedDays: string[];
+  } | null>(null);
   const dragging = useRef(false);
   const fillDrag = useRef<{ r: number; c0: number; c1: number } | null>(null);
   const [fillPreview, setFillPreview] = useState<{ r: number; c0: number; c1: number } | null>(null);
@@ -69,9 +87,9 @@ export function TimelineGrid({
   }, [data.projects]);
 
   const allocMap = useMemo(() => {
-    const map = new Map<string, { load: string }>();
+    const map = new Map<string, { category: LoadCategory }>();
     for (const a of data.allocations) {
-      map.set(`${a.member_id}|${a.project_id}|${a.day}`, { load: a.load });
+      map.set(`${a.member_id}|${a.project_id}|${a.day}`, { category: a.category });
     }
     return map;
   }, [data.allocations]);
@@ -155,7 +173,7 @@ export function TimelineGrid({
   );
 
   const applyToSelection = useCallback(
-    (load: string | null) => {
+    (category: LoadCategory | null) => {
       if (!focus) return;
       const sel = selection ?? { r0: focus.r, r1: focus.r, c0: focus.c, c1: focus.c };
       const cells: CellChange[] = [];
@@ -166,7 +184,7 @@ export function TimelineGrid({
             member_id: rows[r].memberId,
             project_id: rows[r].projectId,
             day: days[c],
-            load,
+            category,
           });
         }
       }
@@ -175,40 +193,59 @@ export function TimelineGrid({
     [focus, selection, isEditable, rows, days, setCells],
   );
 
-  const commitEditor = useCallback(
-    (move: "down" | "right" | "none") => {
-      if (!editor) return;
-      const raw = editor.value.replace(",", ".").trim();
-      setEditor(null);
-      if (raw !== "") {
-        const n = parseFloat(raw);
-        if (!Number.isNaN(n)) {
-          const clamped = Math.max(0, Math.min(1, Math.round(n * 20) / 20));
-          if (isEditable(editor.r, editor.c)) {
-            setCells([
-              {
-                member_id: rows[editor.r].memberId,
-                project_id: rows[editor.r].projectId,
-                day: days[editor.c],
-                load: clamped === 0 ? null : String(clamped),
-              },
-            ]);
-          }
-        }
+  /** убрать строку проекта: пустую — сразу, с загрузкой — через подтверждение */
+  const requestRemoveRow = useCallback(
+    (row: GridRow) => {
+      const allocatedDays = days.filter((d) =>
+        allocMap.has(`${row.memberId}|${row.projectId}|${d}`),
+      );
+      if (!allocatedDays.length) {
+        onRemoveRow?.(row.memberId, row.projectId);
+        setFocus(null);
+        setAnchor(null);
+        return;
       }
-      if (move === "down" && editor.r < rows.length - 1)
-        setFocus({ r: editor.r + 1, c: editor.c });
-      if (move === "right" && editor.c < days.length - 1)
-        setFocus({ r: editor.r, c: editor.c + 1 });
+      setRemoveRow({
+        memberId: row.memberId,
+        projectId: row.projectId,
+        code: row.projectCode,
+        allocatedDays,
+      });
+    },
+    [days, allocMap, onRemoveRow],
+  );
+
+  const confirmRemoveRow = useCallback(() => {
+    if (!removeRow) return;
+    setCells(
+      removeRow.allocatedDays.map((day) => ({
+        member_id: removeRow.memberId,
+        project_id: removeRow.projectId,
+        day,
+        category: null,
+      })),
+    );
+    onRemoveRow?.(removeRow.memberId, removeRow.projectId);
+    setFocus(null);
+    setAnchor(null);
+  }, [removeRow, setCells, onRemoveRow]);
+
+  /** выбор в пикере: применить к выделению, фокус вниз — как раньше у редактора */
+  const commitPicker = useCallback(
+    (category: LoadCategory | null) => {
+      if (!picker) return;
+      setPicker(null);
+      applyToSelection(category);
+      if (picker.r < rows.length - 1) setFocus({ r: picker.r + 1, c: picker.c });
       containerRef.current?.focus();
     },
-    [editor, isEditable, rows, days, setCells],
+    [picker, applyToSelection, rows.length],
   );
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (readOnly) return;
-      if (editor) return; // ввод обрабатывает input
+      if (picker) return; // ввод обрабатывает пикер
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -244,7 +281,8 @@ export function TimelineGrid({
           move(0, e.shiftKey ? -1 : 1, false);
           return;
         case "Enter":
-          move(1, 0, false);
+          e.preventDefault();
+          if (isEditable(focus.r, focus.c)) setPicker({ r: focus.r, c: focus.c });
           return;
         case "Escape":
           setAnchor(null);
@@ -261,12 +299,8 @@ export function TimelineGrid({
         applyToSelection(QUICK_KEYS[e.key]);
         return;
       }
-      if (/^[0-9.,]$/.test(e.key)) {
-        e.preventDefault();
-        setEditor({ r: focus.r, c: focus.c, value: e.key === "," ? "0." : e.key });
-      }
     },
-    [editor, focus, anchor, rows, days, undo, redo, applyToSelection, readOnly],
+    [picker, focus, anchor, rows, days, undo, redo, applyToSelection, isEditable, readOnly],
   );
 
   // drag-fill: применить значение исходной ячейки на диапазон
@@ -285,7 +319,7 @@ export function TimelineGrid({
             member_id: row.memberId,
             project_id: row.projectId,
             day: days[c],
-            load: src?.load ?? null,
+            category: src?.category ?? null,
           });
         }
         setCells(cells);
@@ -312,15 +346,6 @@ export function TimelineGrid({
 
   const gridCols = `minmax(190px, 240px) repeat(${days.length}, minmax(38px, 1fr)) minmax(88px, 110px)`;
   const needScroll = days.length > 10;
-
-  const cellClass = (load: number, capacity: number) => {
-    if (load === 0) return "";
-    if (capacity > 0 && load > capacity)
-      return "bg-[var(--load-over-bg)] text-[var(--load-over-ink)] font-bold";
-    if (capacity > 0 && load >= capacity)
-      return "bg-[var(--load-full-bg)] text-[var(--load-full-ink)] font-medium";
-    return "bg-[var(--load-partial-bg)] text-[var(--load-partial-ink)]";
-  };
 
   return (
     <div
@@ -448,7 +473,7 @@ export function TimelineGrid({
                       className={`relative flex items-center justify-center border-l border-line/60 py-1 text-xs font-nums ${
                         weekStarts.has(d.day) && d.day !== days[0] ? "week-gap" : ""
                       } ${d.day === tidelineDay ? "tideline-edge" : ""} ${
-                        off ? "bg-[var(--cell-off)]" : cellClass(load, cap)
+                        off ? "bg-[var(--cell-off)]" : summaryLoadClass(load, cap).className
                       }`}
                       style={
                         d.is_absent
@@ -492,7 +517,7 @@ export function TimelineGrid({
                       style={{ gridTemplateColumns: gridCols }}
                     >
                       <div
-                        className={`flex items-center gap-1 py-0.5 pl-7 pr-2 text-xs text-muted ${
+                        className={`group/row flex items-center gap-1 py-0.5 pl-7 pr-2 text-xs text-muted ${
                           needScroll ? "sticky left-0 z-10 bg-page" : ""
                         }`}
                       >
@@ -510,12 +535,23 @@ export function TimelineGrid({
                             {row.projectCode}
                           </Link>
                         )}
+                        {!readOnly && (
+                          <button
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={() => requestRemoveRow(row)}
+                            title="Убрать проект у сотрудника (снять загрузку в окне)"
+                            aria-label={`Убрать строку ${row.projectCode}`}
+                            className="ml-auto hidden rounded px-1 text-muted hover:bg-page hover:text-mts group-hover/row:block"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                       {days.map((d, c) => {
                         const cellData = allocMap.get(
                           `${row.memberId}|${row.projectId}|${d}`,
                         );
-                        const load = cellData ? parseFloat(cellData.load) : 0;
+                        const category = cellData?.category ?? null;
                         const info = dayInfo(row.memberId, d);
                         const off = !info?.is_working;
                         const absent = !!info?.is_absent;
@@ -526,28 +562,29 @@ export function TimelineGrid({
                           fillPreview.r === r &&
                           c >= Math.min(fillPreview.c0, fillPreview.c1) &&
                           c <= Math.max(fillPreview.c0, fillPreview.c1);
-                        const editing = editor && editor.r === r && editor.c === c;
+                        const picking = picker && picker.r === r && picker.c === c;
                         return (
                           <div
                             key={d}
                             role="gridcell"
                             aria-selected={isFocus}
-                            className={`group relative flex cursor-cell items-center justify-center border-l border-line/60 py-0.5 text-xs font-nums ${
+                            aria-label={category ? CATEGORY_LABEL[category] : undefined}
+                            className={`group relative flex cursor-cell items-center justify-center border-l border-line/60 py-0.5 text-xs ${
                               weekStarts.has(d) && d !== days[0] ? "week-gap" : ""
                             } ${d === tidelineDay ? "tideline-edge" : ""} ${
                               off ? "bg-[var(--cell-off)] cursor-default" : ""
-                            } ${load > 0 && !off ? cellClass(load, 99) : ""} ${
-                              load >= 1 ? "!bg-[var(--load-full-bg)] !text-[var(--load-full-ink)]" : ""
-                            } ${isSel || inFill ? "cell-selected" : ""} ${
-                              isFocus ? "cell-focus" : ""
-                            }`}
+                            } ${category && !off ? categoryCellClass(category) : ""} ${
+                              isSel || inFill ? "cell-selected" : ""
+                            } ${isFocus ? "cell-focus" : ""}`}
                             style={absent ? { backgroundImage: "var(--cell-absent)" } : undefined}
                             title={
                               absent
                                 ? "Отсутствие (отпуск/болезнь): ёмкость дня 0, планирование недоступно. Чтобы поставить загрузку, сначала снимите отсутствие."
                                 : off
                                   ? "Нерабочий день"
-                                  : undefined
+                                  : category
+                                    ? CATEGORY_LABEL[category]
+                                    : undefined
                             }
                             onMouseDown={(e) => {
                               if (readOnly) return;
@@ -567,55 +604,42 @@ export function TimelineGrid({
                               }
                             }}
                             onDoubleClick={() => {
-                              if (isEditable(r, c))
-                                setEditor({ r, c, value: cellData?.load ?? "" });
+                              if (isEditable(r, c)) setPicker({ r, c });
                             }}
                           >
-                            {editing ? (
-                              <input
-                                autoFocus
-                                value={editor.value}
-                                onChange={(e) =>
-                                  setEditor({ ...editor, value: e.target.value })
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    commitEditor("down");
-                                  } else if (e.key === "Tab") {
-                                    e.preventDefault();
-                                    commitEditor("right");
-                                  } else if (e.key === "Escape") {
-                                    setEditor(null);
-                                    containerRef.current?.focus();
-                                  }
-                                }}
-                                onBlur={() => commitEditor("none")}
-                                className="absolute inset-0 w-full bg-surface text-center text-xs font-nums outline outline-2 outline-[var(--accent)]"
-                              />
+                            {!off && !absent && category ? (
+                              <span aria-hidden>{CATEGORY_GLYPH[category]}</span>
                             ) : (
-                              <>
-                                {!off && !absent && load > 0 ? fmtLoad(load) : ""}
-                                {/* маркер растяжки как в Excel: виден на фокусе
-                                    и при наведении на заполненную ячейку */}
-                                {!readOnly && !off && !absent && (isFocus || load > 0) && (
-                                  <span
-                                    className={`absolute -bottom-0.5 -right-0.5 z-10 h-2.5 w-2.5 cursor-ew-resize rounded-sm border border-surface bg-[var(--accent)] ${
-                                      isFocus ? "" : "opacity-0 group-hover:opacity-100"
-                                    }`}
-                                    title="Потянуть, чтобы растянуть значение по дням"
-                                    onMouseDown={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      containerRef.current?.focus();
-                                      setFocus({ r, c });
-                                      setAnchor(null);
-                                      fillDrag.current = { r, c0: c, c1: c };
-                                      setFillPreview({ r, c0: c, c1: c });
-                                    }}
-                                  />
-                                )}
-                              </>
+                              ""
+                            )}
+                            {/* маркер растяжки как в Excel: виден на фокусе
+                                и при наведении на заполненную ячейку */}
+                            {!readOnly && !off && !absent && (isFocus || category) && (
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 z-10 h-2.5 w-2.5 cursor-ew-resize rounded-sm border border-surface bg-[var(--accent)] ${
+                                  isFocus ? "" : "opacity-0 group-hover:opacity-100"
+                                }`}
+                                title="Потянуть, чтобы растянуть значение по дням"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  containerRef.current?.focus();
+                                  setFocus({ r, c });
+                                  setAnchor(null);
+                                  fillDrag.current = { r, c0: c, c1: c };
+                                  setFillPreview({ r, c0: c, c1: c });
+                                }}
+                              />
+                            )}
+                            {picking && (
+                              <CategoryPicker
+                                current={category}
+                                onPick={commitPicker}
+                                onClose={() => {
+                                  setPicker(null);
+                                  containerRef.current?.focus();
+                                }}
+                              />
                             )}
                           </div>
                         );
@@ -700,6 +724,22 @@ export function TimelineGrid({
           </div>
         </div>
       </div>
+      {removeRow && (
+        <ConfirmDialog
+          title="Убрать проект у сотрудника"
+          message={
+            <>
+              Строка <b>{removeRow.code}</b> у сотрудника{" "}
+              {memberById.get(removeRow.memberId)?.member.name ?? ""}: загрузка за{" "}
+              {removeRow.allocatedDays.length} раб. дн. в видимом окне будет снята.
+              Действие можно отменить (Ctrl+Z).
+            </>
+          }
+          confirmLabel="Снять и убрать"
+          onConfirm={confirmRemoveRow}
+          onClose={() => setRemoveRow(null)}
+        />
+      )}
     </div>
   );
 }
@@ -766,6 +806,97 @@ function AddProjectRow({
         )}
       </div>
       <div style={{ gridColumn: `span ${gridColsSpan(gridCols)}` }} />
+    </div>
+  );
+}
+
+/** Поповер выбора категории у ячейки: Enter/двойной клик открывают,
+ * ↑/↓ + Enter или клик выбирают, 1/2/5/7 — быстрый выбор, 0 — очистить, Esc — закрыть. */
+function CategoryPicker({
+  current,
+  onPick,
+  onClose,
+}: {
+  current: LoadCategory | null;
+  onPick: (category: LoadCategory | null) => void;
+  onClose: () => void;
+}) {
+  const options: (LoadCategory | null)[] = [...CATEGORY_ORDER, null];
+  const [active, setActive] = useState(
+    Math.max(0, options.indexOf(current)),
+  );
+  const keyToCategory = useMemo(() => {
+    const map = new Map<string, LoadCategory | null>();
+    CATEGORY_ORDER.forEach((c) => map.set(CATEGORY_KEY[c], c));
+    map.set("0", null);
+    return map;
+  }, []);
+  return (
+    <div
+      role="listbox"
+      aria-label="Категория загрузки"
+      tabIndex={0}
+      ref={(el) => el?.focus()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setActive((i) => Math.min(options.length - 1, i + 1));
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setActive((i) => Math.max(0, i - 1));
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          onPick(options[active]);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        } else if (keyToCategory.has(e.key)) {
+          e.preventDefault();
+          onPick(keyToCategory.get(e.key) ?? null);
+        }
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onBlur={onClose}
+      className="absolute left-1/2 top-full z-30 mt-1 w-44 -translate-x-1/2 rounded-md border border-line bg-surface py-1 shadow-lg outline-none"
+    >
+      {options.map((c, i) => (
+        <button
+          key={c ?? "clear"}
+          role="option"
+          aria-selected={i === active}
+          onMouseEnter={() => setActive(i)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onPick(c);
+          }}
+          className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs ${
+            i === active ? "bg-page" : ""
+          } ${c === null ? "border-t border-line/60 text-muted" : ""}`}
+        >
+          {c ? (
+            <>
+              <span
+                className={`inline-flex h-4 w-5 items-center justify-center rounded-sm text-[10px] ${categoryCellClass(c)}`}
+                aria-hidden
+              >
+                {CATEGORY_GLYPH[c]}
+              </span>
+              <span className="flex-1">{CATEGORY_LABEL[c]}</span>
+              <kbd className="text-[10px] text-muted">{CATEGORY_KEY[c]}</kbd>
+            </>
+          ) : (
+            <>
+              <span className="inline-flex h-4 w-5 items-center justify-center" aria-hidden>
+                ✕
+              </span>
+              <span className="flex-1">Очистить</span>
+              <kbd className="text-[10px] text-muted">0</kbd>
+            </>
+          )}
+        </button>
+      ))}
     </div>
   );
 }

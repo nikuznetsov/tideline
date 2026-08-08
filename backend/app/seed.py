@@ -5,7 +5,6 @@
 import asyncio
 import random
 from datetime import date, timedelta
-from decimal import Decimal
 
 from sqlalchemy import delete, select
 
@@ -152,28 +151,28 @@ async def seed() -> None:
                     if r < 0.75:
                         db.add(m.Allocation(
                             workspace_id=ws.id, member_id=member.id,
-                            project_id=primary.id, day=d, load=Decimal("1.0"),
+                            project_id=primary.id, day=d, category="full",
                             created_by=user.id,
                         ))
                     else:
                         db.add(m.Allocation(
                             workspace_id=ws.id, member_id=member.id,
-                            project_id=primary.id, day=d, load=Decimal("0.5"),
+                            project_id=primary.id, day=d, category="half",
                             created_by=user.id,
                         ))
                         db.add(m.Allocation(
                             workspace_id=ws.id, member_id=member.id,
-                            project_id=secondary.id, day=d, load=Decimal("0.5"),
+                            project_id=secondary.id, day=d, category="half",
                             created_by=user.id,
                         ))
-                # перегруженный Иван: +0.5 сверху на INFRA в текущем окне
+                # перегруженный Иван: «наполовину» сверху на INFRA в текущем окне
                 if d >= current_week:
                     db.add(m.Allocation(
                         workspace_id=ws.id, member_id=members[2].id,
                         project_id=next(p for p in active if p.code == "INFRA").id
                         if assignments[2][1].code != "INFRA"
                         else next(p for p in active if p.code == "SCOUT").id,
-                        day=d, load=Decimal("0.5"), created_by=user.id,
+                        day=d, category="half", created_by=user.id,
                     ))
             d += timedelta(days=1)
         await db.commit()

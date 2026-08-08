@@ -27,7 +27,7 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
             "member_id": str(member.id),
             "project_id": str(project.id),
             "day": monday.isoformat(),
-            "load": "0.5",
+            "category": "half",
         },
     )
     assert resp.status_code == 200, resp.text
@@ -40,12 +40,12 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
             "member_id": str(member.id),
             "project_id": str(project.id),
             "day": monday.isoformat(),
-            "load": "0.75",
+            "category": "most",
         },
     )
     assert resp.status_code == 200
     assert resp.json()["id"] == alloc_id
-    assert Decimal(resp.json()["load"]) == Decimal("0.75")
+    assert resp.json()["category"] == "most"
 
     resp = await auth_client.get(
         f"/api/v1/w/xops/timeline?from={monday}&to={monday + timedelta(days=13)}"
@@ -69,7 +69,7 @@ async def test_allocation_rejects_weekend(auth_client, team, monday):
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
             "day": saturday.isoformat(),
-            "load": "1.0",
+            "category": "full",
         },
     )
     assert resp.status_code == 422
@@ -82,7 +82,7 @@ async def test_allocation_rejects_finished_project(auth_client, team, monday):
             "member_id": str(team["members"][0].id),
             "project_id": str(team["finished"].id),
             "day": monday.isoformat(),
-            "load": "1.0",
+            "category": "full",
         },
     )
     assert resp.status_code == 422
@@ -106,7 +106,7 @@ async def test_allocation_rejects_absence_day(auth_client, team, monday):
             "member_id": str(member.id),
             "project_id": str(team["project"].id),
             "day": monday.isoformat(),
-            "load": "1.0",
+            "category": "full",
         },
     )
     assert resp.status_code == 422
@@ -121,7 +121,7 @@ async def test_absence_over_allocations_requires_confirmation(auth_client, team,
             "member_id": str(member.id),
             "project_id": str(team["project"].id),
             "day": monday.isoformat(),
-            "load": "1.0",
+            "category": "full",
         },
     )
     payload = {
@@ -155,7 +155,7 @@ async def test_bulk_fill_skips_weekend(auth_client, team, monday):
                     "project_id": str(team["project"].id),
                     "date_from": monday.isoformat(),
                     "date_to": (monday + timedelta(days=6)).isoformat(),
-                    "load": "1.0",
+                    "category": "full",
                 }
             ]
         },
@@ -171,7 +171,7 @@ async def test_copy_week(auth_client, team, monday):
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
             "day": monday.isoformat(),
-            "load": "1.0",
+            "category": "full",
         },
     )
     resp = await auth_client.post(
@@ -310,7 +310,7 @@ async def test_delete_project_removes_allocations(auth_client, team, monday):
     mid = str(team["members"][0].id)
     resp = await auth_client.post(
         "/api/v1/w/xops/allocations",
-        json={"member_id": mid, "project_id": pid, "day": monday.isoformat(), "load": "1.0"},
+        json={"member_id": mid, "project_id": pid, "day": monday.isoformat(), "category": "full"},
     )
     assert resp.status_code == 200
 
@@ -375,7 +375,7 @@ async def test_week_close_endpoint(auth_client, team, monday):
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
             "day": monday.isoformat(),
-            "load": "1.0",
+            "category": "full",
         },
     )
     resp = await auth_client.post(
@@ -430,7 +430,7 @@ async def test_export_csv_escapes_injection(auth_client, db, team, monday):
             member_id=team["members"][0].id,
             project_id=evil.id,
             day=monday,
-            load=Decimal("0.5"),
+            category="half",
         )
     )
     await db.commit()

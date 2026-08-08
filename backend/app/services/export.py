@@ -4,6 +4,7 @@ import csv
 import io
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Project
 from app.domain.calendar import date_range, is_weekend
 from app.domain.capacity import load_calendar_context
+from app.domain.categories import CATEGORY_WEIGHTS, XLSX_LETTER
 
 DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
@@ -56,13 +58,23 @@ async def _timeline_rows(
     for a in allocations:
         alloc_map.setdefault((a.member_id, a.day), []).append(a)
 
+    # перегруз: сумма весов категорий за день у сотрудника больше его ёмкости
+    day_sums: dict[tuple[uuid.UUID, date], Decimal] = {}
+    for a in allocations:
+        key = (a.member_id, a.day)
+        day_sums[key] = day_sums.get(key, Decimal(0)) + CATEGORY_WEIGHTS[a.category]
+    capacity = {m.id: Decimal(str(m.capacity_per_day)) for m in members}
+    overload_days = {
+        key for key, s in day_sums.items() if s > capacity.get(key[0], Decimal(1))
+    }
+
     rows = []
     for m in members:
-        member_projects: dict[uuid.UUID, dict[date, float]] = {}
+        member_projects: dict[uuid.UUID, dict[date, str]] = {}
         for a in allocations:
             if a.member_id != m.id:
                 continue
-            member_projects.setdefault(a.project_id, {})[a.day] = float(a.load)
+            member_projects.setdefault(a.project_id, {})[a.day] = a.category
         for p_id, day_map in sorted(
             member_projects.items(), key=lambda kv: projects[kv[0]].code if kv[0] in projects else ""
         ):
@@ -70,19 +82,29 @@ async def _timeline_rows(
             rows.append(
                 {
                     "member": m.name,
+                    "member_id": m.id,
                     "project": code,
                     "cells": [day_map.get(d) for d in days],
                 }
             )
         if not member_projects:
-            rows.append({"member": m.name, "project": "—", "cells": [None] * len(days)})
-    return rows, days, nw_days
+            rows.append(
+                {
+                    "member": m.name,
+                    "member_id": m.id,
+                    "project": "—",
+                    "cells": [None] * len(days),
+                }
+            )
+    return rows, days, nw_days, overload_days
 
 
 async def export_timeline_xlsx(
     db: AsyncSession, workspace_id: uuid.UUID, date_from: date, date_to: date
 ) -> bytes:
-    rows, days, nw_days = await _timeline_rows(db, workspace_id, date_from, date_to)
+    rows, days, nw_days, overload_days = await _timeline_rows(
+        db, workspace_id, date_from, date_to
+    )
     wb = Workbook()
     sh = wb.active
     sh.title = "Таймлайн"
@@ -103,10 +125,18 @@ async def export_timeline_xlsx(
         sh.cell(r, 1, _safe(row["member"]))
         sh.cell(r, 2, _safe(row["project"]))
         for c, (d, value) in enumerate(zip(days, row["cells"]), start=3):
-            cell = sh.cell(r, c, value)
+            cell = sh.cell(r, c, XLSX_LETTER[value] if value else None)
             if is_weekend(d) or d in nw_days:
                 cell.fill = WEEKEND_FILL
+            elif value and (row["member_id"], d) in overload_days:
+                cell.fill = OVERLOAD_FILL
             cell.alignment = Alignment(horizontal="center")
+
+    legend = (
+        "Ф — фоново (0,25) · Н — наполовину (0,5) · "
+        "П — почти весь день (0,75) · В — весь день (1) · красным — перегруз дня"
+    )
+    sh.cell(len(rows) + 3, 1, legend)
 
     sh.freeze_panes = "C2"
     buf = io.BytesIO()
@@ -117,7 +147,7 @@ async def export_timeline_xlsx(
 async def export_timeline_csv(
     db: AsyncSession, workspace_id: uuid.UUID, date_from: date, date_to: date
 ) -> str:
-    rows, days, _ = await _timeline_rows(db, workspace_id, date_from, date_to)
+    rows, days, _, _ = await _timeline_rows(db, workspace_id, date_from, date_to)
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(

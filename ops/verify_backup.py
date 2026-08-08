@@ -91,7 +91,11 @@ def checks(url: str) -> None:
 
         cur.execute(
             """
-            SELECT coalesce(sum(load), 0) FROM allocation
+            SELECT coalesce(sum(CASE category
+                WHEN 'background' THEN 0.25
+                WHEN 'half'       THEN 0.5
+                WHEN 'most'       THEN 0.75
+                ELSE 1.0 END), 0) FROM allocation
             WHERE day >= date_trunc('week', current_date) - interval '7 days'
               AND day < date_trunc('week', current_date)
             """

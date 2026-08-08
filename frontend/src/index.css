@@ -48,6 +48,15 @@
   --load-full-ink: #ffffff;
   --load-over-bg: #f3c1c4;
   --load-over-ink: #8f0710;
+  /* 4 ступени категорий (ячейки проектов): от бледного к насыщенному */
+  --load-cat-background-bg: #e4ecf2;
+  --load-cat-background-ink: #44607a;
+  --load-cat-half-bg: #c6d8e7;
+  --load-cat-half-ink: #2d4356;
+  --load-cat-most-bg: #93b3cd;
+  --load-cat-most-ink: #1e3a52;
+  --load-cat-full-bg: #587f9f;
+  --load-cat-full-ink: #ffffff;
   --cell-off: #ececee;
   --cell-absent: repeating-linear-gradient(
     -45deg,
@@ -76,6 +85,14 @@
     --load-full-ink: #ffffff;
     --load-over-bg: #5c1a20;
     --load-over-ink: #ffb3b8;
+    --load-cat-background-bg: #222d38;
+    --load-cat-background-ink: #90aec8;
+    --load-cat-half-bg: #2d4761;
+    --load-cat-half-ink: #b9cfe2;
+    --load-cat-most-bg: #3d6183;
+    --load-cat-most-ink: #d3e2ef;
+    --load-cat-full-bg: #4d7aa5;
+    --load-cat-full-ink: #ffffff;
     --cell-off: #202327;
     --cell-absent: repeating-linear-gradient(
       -45deg,

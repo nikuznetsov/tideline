@@ -1,3 +1,5 @@
+import type { LoadCategory } from "../lib/categories";
+
 export interface Member {
   id: string;
   user_id: string | null;
@@ -15,7 +17,7 @@ export interface TimelineAllocation {
   member_id: string;
   project_id: string;
   day: string;
-  load: string;
+  category: LoadCategory;
   note: string | null;
 }
 

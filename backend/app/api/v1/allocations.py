@@ -34,7 +34,7 @@ def _alloc_dict(a: Allocation) -> dict:
         "member_id": str(a.member_id),
         "project_id": str(a.project_id),
         "day": a.day.isoformat(),
-        "load": str(a.load),
+        "category": a.category,
     }
 
 
@@ -120,7 +120,7 @@ async def create_allocation(
     ).scalar_one_or_none()
     if existing:
         before = _alloc_dict(existing)
-        existing.load = body.load
+        existing.category = body.category
         record_audit(db, ws.id, user.id, "allocation", existing.id, "update",
                      before, _alloc_dict(existing))
         await db.commit()
@@ -131,7 +131,7 @@ async def create_allocation(
         member_id=body.member_id,
         project_id=body.project_id,
         day=body.day,
-        load=body.load,
+        category=body.category,
         created_by=user.id,
     )
     db.add(alloc)
@@ -202,7 +202,7 @@ async def bulk_allocations(
             if is_weekend(day) or day in nw or day in absent_days:
                 continue
             cur = existing.get(day)
-            if item.load is None:
+            if item.category is None:
                 if cur:
                     record_audit(db, ws.id, user.id, "allocation", cur.id, "delete",
                                  _alloc_dict(cur), None)
@@ -210,7 +210,7 @@ async def bulk_allocations(
                     affected += 1
             elif cur:
                 before = _alloc_dict(cur)
-                cur.load = item.load
+                cur.category = item.category
                 record_audit(db, ws.id, user.id, "allocation", cur.id, "update",
                              before, _alloc_dict(cur))
                 affected += 1
@@ -220,7 +220,7 @@ async def bulk_allocations(
                     member_id=item.member_id,
                     project_id=item.project_id,
                     day=day,
-                    load=item.load,
+                    category=item.category,
                     created_by=user.id,
                 )
                 db.add(alloc)
@@ -250,8 +250,8 @@ async def patch_allocation(
     if not alloc:
         raise HTTPException(404, "Аллокация не найдена")
     before = _alloc_dict(alloc) | {"note": alloc.note}
-    if body.load is not None:
-        alloc.load = body.load
+    if body.category is not None:
+        alloc.category = body.category
     if body.note is not None:
         alloc.note = body.note or None
     record_audit(
@@ -390,7 +390,7 @@ async def copy_week(
             member_id=a.member_id,
             project_id=a.project_id,
             day=new_day,
-            load=a.load,
+            category=a.category,
             created_by=user.id,
         )
         db.add(alloc)

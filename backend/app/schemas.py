@@ -5,20 +5,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-VALID_STEP = Decimal("0.05")
+LoadCategory = Literal["background", "half", "most", "full"]
 
 
 def validate_capacity(v: Decimal) -> Decimal:
     if not (Decimal("0") < v <= Decimal("1")):
         raise ValueError("Ёмкость в день — доля из диапазона (0, 1]")
-    return v
-
-
-def validate_load(v: Decimal) -> Decimal:
-    if not (Decimal("0") < v <= Decimal("1")):
-        raise ValueError("Доля дня должна быть в диапазоне (0, 1]")
-    if (v * 100) % 5 != 0:
-        raise ValueError("Шаг доли дня — 0.05")
     return v
 
 
@@ -182,7 +174,7 @@ class AllocationOut(BaseModel):
     member_id: uuid.UUID
     project_id: uuid.UUID
     day: date
-    load: Decimal
+    category: LoadCategory
     note: str | None
 
 
@@ -190,9 +182,7 @@ class AllocationCreate(BaseModel):
     member_id: uuid.UUID
     project_id: uuid.UUID
     day: date
-    load: Decimal
-
-    _v = field_validator("load")(validate_load)
+    category: LoadCategory
 
 
 class AllocationBulkSet(BaseModel):
@@ -200,12 +190,7 @@ class AllocationBulkSet(BaseModel):
     project_id: uuid.UUID
     date_from: date
     date_to: date
-    load: Decimal | None = None  # None => очистить диапазон
-
-    @field_validator("load")
-    @classmethod
-    def _v(cls, v):
-        return None if v is None else validate_load(v)
+    category: LoadCategory | None = None  # None => очистить диапазон
 
 
 class AllocationBulkRequest(BaseModel):
@@ -213,13 +198,8 @@ class AllocationBulkRequest(BaseModel):
 
 
 class AllocationPatch(BaseModel):
-    load: Decimal | None = None
+    category: LoadCategory | None = None
     note: str | None = None
-
-    @field_validator("load")
-    @classmethod
-    def _v(cls, v):
-        return None if v is None else validate_load(v)
 
 
 class CopyWeekRequest(BaseModel):
@@ -235,7 +215,7 @@ class TimelineAllocation(BaseModel):
     member_id: uuid.UUID
     project_id: uuid.UUID
     day: date
-    load: Decimal
+    category: LoadCategory
     note: str | None = None
 
 

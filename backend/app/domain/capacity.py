@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Absence, Allocation, Member, NonWorkingDay
 from app.domain.calendar import date_range, is_weekend, week_start_of
+from app.domain.categories import CATEGORY_WEIGHTS
 
 
 @dataclass
@@ -132,7 +133,7 @@ def compute_member_capacity(
     for a in allocations:
         if a.member_id != member.id:
             continue
-        alloc_by_day[a.day] = alloc_by_day.get(a.day, Decimal(0)) + Decimal(str(a.load))
+        alloc_by_day[a.day] = alloc_by_day.get(a.day, Decimal(0)) + CATEGORY_WEIGHTS[a.category]
 
     result = MemberCapacity(member=member)
     for d in date_range(date_from, date_to):

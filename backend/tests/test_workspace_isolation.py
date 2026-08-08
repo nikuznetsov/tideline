@@ -27,7 +27,7 @@ async def test_timeline_does_not_leak_foreign_workspace(
             member_id=foreign_member.id,
             project_id=foreign_project.id,
             day=monday,
-            load=Decimal("1.0"),
+            category="full",
         )
     )
     await db.commit()
@@ -65,13 +65,13 @@ async def test_api_cannot_touch_foreign_allocation(
         member_id=foreign_member.id,
         project_id=foreign_project.id,
         day=monday,
-        load=Decimal("1.0"),
+        category="full",
     )
     db.add(alloc)
     await db.commit()
 
     resp = await auth_client.patch(
-        f"/api/v1/w/xops/allocations/{alloc.id}", json={"load": "0.5"}
+        f"/api/v1/w/xops/allocations/{alloc.id}", json={"category": "half"}
     )
     assert resp.status_code == 404
     resp = await auth_client.delete(f"/api/v1/w/xops/allocations/{alloc.id}")

@@ -59,11 +59,14 @@ const data: TimelineResponse = {
       member_id: "m1",
       project_id: "p1",
       day: days[0],
-      load: "0.5",
+      category: "half",
       note: null,
     },
   ],
-  projects: [{ id: "p1", code: "TEST", name: "Тест", lifecycle: "active" }],
+  projects: [
+    { id: "p1", code: "TEST", name: "Тест", lifecycle: "active" },
+    { id: "p2", code: "EXTRA", name: "Пустой", lifecycle: "active" },
+  ],
   absences: [],
   non_working_days: [],
   day_totals: days.map((day, i) => ({
@@ -81,7 +84,13 @@ const data: TimelineResponse = {
   week_close_reminder: null,
 };
 
-function renderGrid(setCells = vi.fn()) {
+function renderGrid(
+  setCells = vi.fn(),
+  opts: {
+    extraRows?: Record<string, string[]>;
+    onRemoveRow?: (memberId: string, projectId: string) => void;
+  } = {},
+) {
   render(
     <MemoryRouter>
       <TimelineGrid
@@ -89,8 +98,9 @@ function renderGrid(setCells = vi.fn()) {
         setCells={setCells}
         undo={() => {}}
         redo={() => {}}
-        extraRows={{}}
+        extraRows={opts.extraRows ?? {}}
         onAddRow={() => {}}
+        onRemoveRow={opts.onRemoveRow}
       />
     </MemoryRouter>,
   );
@@ -112,7 +122,7 @@ describe("TimelineGrid", () => {
     fireEvent.keyDown(grid, { key: "1" });
 
     expect(setCells).toHaveBeenCalledWith([
-      { member_id: "m1", project_id: "p1", day: days[1], load: "1" },
+      { member_id: "m1", project_id: "p1", day: days[1], category: "full" },
     ]);
   });
 
@@ -125,11 +135,27 @@ describe("TimelineGrid", () => {
     fireEvent.mouseUp(window);
     fireEvent.keyDown(grid, { key: "0" });
     expect(setCells).toHaveBeenCalledWith([
-      { member_id: "m1", project_id: "p1", day: days[0], load: null },
+      { member_id: "m1", project_id: "p1", day: days[0], category: null },
     ]);
   });
 
-  it("открывает инлайн-редактор по цифре и сохраняет по Enter", () => {
+  it("открывает пикер по Enter и ставит категорию кликом", () => {
+    const setCells = renderGrid();
+    fireEvent.click(screen.getByTitle("Развернуть по проектам"));
+    const grid = screen.getByRole("grid");
+    const cells = screen.getAllByRole("gridcell");
+    fireEvent.mouseDown(cells[2]);
+    fireEvent.mouseUp(window);
+    fireEvent.keyDown(grid, { key: "Enter" });
+    const picker = screen.getByRole("listbox");
+    expect(picker).toBeTruthy();
+    fireEvent.mouseDown(screen.getByText("Наполовину"));
+    expect(setCells).toHaveBeenCalledWith([
+      { member_id: "m1", project_id: "p1", day: days[2], category: "half" },
+    ]);
+  });
+
+  it("цифра без категории ничего не делает", () => {
     const setCells = renderGrid();
     fireEvent.click(screen.getByTitle("Развернуть по проектам"));
     const grid = screen.getByRole("grid");
@@ -137,11 +163,52 @@ describe("TimelineGrid", () => {
     fireEvent.mouseDown(cells[2]);
     fireEvent.mouseUp(window);
     fireEvent.keyDown(grid, { key: "3" });
-    const input = screen.getByDisplayValue("3");
-    fireEvent.change(input, { target: { value: "0.3" } });
-    fireEvent.keyDown(input, { key: "Enter" });
+    expect(setCells).not.toHaveBeenCalled();
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("крестик у строки с загрузкой: подтверждение снимает ячейки и убирает строку", () => {
+    const onRemoveRow = vi.fn();
+    const setCells = renderGrid(vi.fn(), { onRemoveRow });
+    fireEvent.click(screen.getByTitle("Развернуть по проектам"));
+    fireEvent.click(screen.getByLabelText("Убрать строку TEST"));
+    // строка с загрузкой — сначала подтверждение
+    expect(setCells).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Снять и убрать"));
     expect(setCells).toHaveBeenCalledWith([
-      { member_id: "m1", project_id: "p1", day: days[2], load: "0.3" },
+      { member_id: "m1", project_id: "p1", day: days[0], category: null },
+    ]);
+    expect(onRemoveRow).toHaveBeenCalledWith("m1", "p1");
+  });
+
+  it("пустая строка убирается сразу, без подтверждения", () => {
+    const onRemoveRow = vi.fn();
+    const setCells = renderGrid(vi.fn(), {
+      extraRows: { m1: ["p2"] },
+      onRemoveRow,
+    });
+    fireEvent.click(screen.getByTitle("Развернуть по проектам"));
+    fireEvent.click(screen.getByLabelText("Убрать строку EXTRA"));
+    expect(screen.queryByText("Снять и убрать")).toBeNull();
+    expect(setCells).not.toHaveBeenCalled();
+    expect(onRemoveRow).toHaveBeenCalledWith("m1", "p2");
+  });
+
+  it("drag-fill копирует категорию исходной ячейки", () => {
+    const setCells = renderGrid();
+    fireEvent.click(screen.getByTitle("Развернуть по проектам"));
+    const cells = screen.getAllByRole("gridcell");
+    // ячейка понедельника заполнена ("half") — фокусируем, тянем маркер до среды
+    fireEvent.mouseDown(cells[0]);
+    fireEvent.mouseUp(window);
+    const handle = screen.getByTitle("Потянуть, чтобы растянуть значение по дням");
+    fireEvent.mouseDown(handle);
+    fireEvent.mouseEnter(cells[1]);
+    fireEvent.mouseEnter(cells[2]);
+    fireEvent.mouseUp(window);
+    expect(setCells).toHaveBeenCalledWith([
+      { member_id: "m1", project_id: "p1", day: days[1], category: "half" },
+      { member_id: "m1", project_id: "p1", day: days[2], category: "half" },
     ]);
   });
 });

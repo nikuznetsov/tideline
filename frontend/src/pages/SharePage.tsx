@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import type { TimelineResponse } from "../api/types";
+import { LoadLegend } from "../components/timeline/LoadLegend";
 import { TimelineGrid } from "../components/timeline/TimelineGrid";
+import { summaryLoadClass } from "../lib/categories";
 import { addDays, currentMonday, dayLabel, rangeLabel } from "../lib/dates";
 import { fmtNum } from "../lib/format";
 
@@ -117,6 +119,9 @@ export function SharePage() {
               <>
                 {/* десктоп: полная сетка */}
                 <div className="hidden md:block">
+                  <div className="mb-2">
+                    <LoadLegend />
+                  </div>
                   <TimelineGrid
                     data={data}
                     setCells={() => {}}
@@ -143,25 +148,14 @@ export function SharePage() {
                           .map((d) => {
                             const load = parseFloat(d.allocated);
                             const cap = parseFloat(d.capacity);
+                            const cls =
+                              d.is_absent || load === 0
+                                ? "bg-[var(--cell-off)]"
+                                : summaryLoadClass(load, cap).className;
                             return (
                               <span
                                 key={d.day}
-                                className="rounded px-1.5 py-0.5 text-[10px] font-nums"
-                                style={{
-                                  background: d.is_absent
-                                    ? "var(--cell-off)"
-                                    : load === 0
-                                      ? "var(--cell-off)"
-                                      : load > cap
-                                        ? "var(--load-over-bg)"
-                                        : load >= cap
-                                          ? "var(--load-full-bg)"
-                                          : "var(--load-partial-bg)",
-                                  color:
-                                    load >= cap && load > 0 && !d.is_absent
-                                      ? "var(--load-full-ink)"
-                                      : "inherit",
-                                }}
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-nums ${cls}`}
                               >
                                 {dayLabel(d.day)} {d.is_absent ? "отс." : fmtNum(load)}
                               </span>

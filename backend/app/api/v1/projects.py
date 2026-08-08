@@ -23,6 +23,7 @@ from app.db.models import (
 )
 from app.db.session import get_db
 from app.domain.calendar import week_start_of
+from app.domain.categories import weight_sql
 from app.schemas import (
     MemberOut,
     MilestoneIn,
@@ -431,7 +432,7 @@ async def project_load(
 ):
     rows = (
         await db.execute(
-            select(Member, func.sum(Allocation.load))
+            select(Member, func.sum(weight_sql(Allocation.category)))
             .join(Allocation, Allocation.member_id == Member.id)
             .where(
                 Allocation.workspace_id == ws.id,
@@ -440,7 +441,7 @@ async def project_load(
                 Allocation.day <= date_to,
             )
             .group_by(Member.id)
-            .order_by(func.sum(Allocation.load).desc())
+            .order_by(func.sum(weight_sql(Allocation.category)).desc())
         )
     ).all()
     load_rows = [

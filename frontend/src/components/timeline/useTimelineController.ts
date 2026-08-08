@@ -2,13 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { getWorkspaceSlug, wapi } from "../../api/client";
 import type { TimelineResponse } from "../../api/types";
+import { categoryWeight, type LoadCategory } from "../../lib/categories";
 
-/** Мутация одной ячейки: load=null — очистить. */
+/** Мутация одной ячейки: category=null — очистить. */
 export interface CellChange {
   member_id: string;
   project_id: string;
   day: string;
-  load: string | null;
+  category: LoadCategory | null;
 }
 
 interface UndoEntry {
@@ -35,17 +36,17 @@ export function applyCells(
         a.project_id === c.project_id &&
         a.day === c.day,
     );
-    if (c.load === null) {
+    if (c.category === null) {
       if (idx >= 0) allocations.splice(idx, 1);
     } else if (idx >= 0) {
-      allocations[idx] = { ...allocations[idx], load: c.load };
+      allocations[idx] = { ...allocations[idx], category: c.category };
     } else {
       allocations.push({
         id: `tmp-${c.member_id}-${c.project_id}-${c.day}`,
         member_id: c.member_id,
         project_id: c.project_id,
         day: c.day,
-        load: c.load,
+        category: c.category,
         note: null,
       });
     }
@@ -54,7 +55,7 @@ export function applyCells(
   const byMemberDay = new Map<string, number>();
   for (const a of allocations) {
     const key = `${a.member_id}|${a.day}`;
-    byMemberDay.set(key, (byMemberDay.get(key) ?? 0) + parseFloat(a.load));
+    byMemberDay.set(key, (byMemberDay.get(key) ?? 0) + categoryWeight(a.category));
   }
 
   const members = data.members.map((tm) => {
@@ -142,7 +143,7 @@ export function useTimelineController(from: string, to: string) {
         project_id: c.project_id,
         date_from: c.day,
         date_to: c.day,
-        load: c.load,
+        category: c.category,
       }));
       return wapi.post("/allocations/bulk", { items });
     },
@@ -179,7 +180,7 @@ export function useTimelineController(from: string, to: string) {
             a.project_id === c.project_id &&
             a.day === c.day,
         );
-        return { ...c, load: found ? found.load : null };
+        return { ...c, category: found ? found.category : null };
       });
     },
     [queryClient, from, to],
@@ -199,7 +200,7 @@ export function useTimelineController(from: string, to: string) {
     (cells: CellChange[]) => {
       if (!cells.length) return;
       const before = snapshotCells(cells);
-      const changed = cells.filter((c, i) => c.load !== before[i]?.load);
+      const changed = cells.filter((c, i) => c.category !== before[i]?.category);
       if (!changed.length) return;
       const beforeChanged = before.filter((b) =>
         changed.some(

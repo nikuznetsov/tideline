@@ -18,10 +18,19 @@ test("S1: логин, разворот сотрудника и ввод загр
   await expect(cells.first()).toBeVisible();
   await cells.first().click();
   await page.keyboard.press("1");
-  await expect(cells.first()).toHaveText(/1/);
+  await expect(cells.first()).toHaveText("█");
+  await expect(cells.first()).toHaveAccessibleName("Весь день");
   await expect(page.getByText("Сохранено")).toBeVisible();
 
+  // пикер категорий: Enter открывает, выбор ставит категорию
+  await cells.first().click();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("listbox", { name: "Категория загрузки" })).toBeVisible();
+  await page.getByRole("option", { name: /Наполовину/ }).click();
+  await expect(cells.first()).toHaveText("▄");
+
   // очистка нулём
+  await cells.first().click();
   await page.keyboard.press("0");
   await expect(cells.first()).toHaveText(/^$|⚠/);
 });

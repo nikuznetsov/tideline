@@ -17,7 +17,7 @@ async def test_free_capacity_basic(db, workspace, team, monday):
             member_id=member.id,
             project_id=team["project"].id,
             day=monday,
-            load=Decimal("0.75"),
+            category="most",
         )
     )
     await db.commit()
@@ -68,14 +68,14 @@ async def test_partial_capacity_rate(db, workspace, team, monday):
 
 async def test_overload_free_is_zero_not_negative(db, workspace, team, monday):
     member = team["members"][0]
-    for load in ("1.0", "0.5"):
+    for cat in ("full", "half"):
         db.add(
             Allocation(
                 workspace_id=workspace.id,
                 member_id=member.id,
-                project_id=team["project"].id if load == "1.0" else team["finished"].id,
+                project_id=team["project"].id if cat == "full" else team["finished"].id,
                 day=monday,
-                load=Decimal(load),
+                category=cat,
             )
         )
     await db.commit()
@@ -94,7 +94,7 @@ async def test_min_daily_filters_fragments(db, workspace, team, monday):
             member_id=member.id,
             project_id=team["project"].id,
             day=monday,
-            load=Decimal("0.75"),
+            category="most",
         )
     )
     await db.commit()
@@ -137,7 +137,7 @@ async def test_candidates_sorted_by_free_desc(db, workspace, team, monday):
             member_id=team["members"][0].id,
             project_id=team["project"].id,
             day=monday,
-            load=Decimal("0.5"),
+            category="half",
         )
     )
     await db.commit()

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Allocation, AuditLog, Member, Project, WeekSnapshot
+from app.domain.categories import weight
 
 
 class WeekCloseError(Exception):
@@ -71,7 +72,9 @@ async def build_week_payload(
                 "project_id": str(a.project_id),
                 "project_code": projects[a.project_id].code if a.project_id in projects else None,
                 "day": a.day.isoformat(),
-                "load": _num(a.load),
+                "category": a.category,
+                # derived-вес: diff/accuracy читают "load" — старые снимки совместимы
+                "load": _num(weight(a.category)),
             }
             for a in allocations
         ],

@@ -86,7 +86,7 @@ async def test_join_by_invite_link_default_viewer(auth_client, client2, team, mo
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
             "day": monday.isoformat(),
-            "load": "1.0",
+            "category": "full",
         },
     )
     assert resp.status_code == 403
@@ -394,7 +394,7 @@ async def test_delete_workspace_owner_only(auth_client, client2, team, monday):
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
             "day": monday.isoformat(),
-            "load": "0.5",
+            "category": "half",
         },
     )
     assert resp.status_code == 200, resp.text

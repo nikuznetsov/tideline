@@ -13,13 +13,13 @@ from app.domain.week_close import (
 )
 
 
-async def _alloc(db, workspace, team, day, load="1.0", member_idx=0):
+async def _alloc(db, workspace, team, day, category="full", member_idx=0):
     a = Allocation(
         workspace_id=workspace.id,
         member_id=team["members"][member_idx].id,
         project_id=team["project"].id,
         day=day,
-        load=Decimal(load),
+        category=category,
     )
     db.add(a)
     await db.commit()
@@ -42,10 +42,12 @@ async def test_close_week_twice_fails(db, workspace, team, monday):
 
 async def test_close_week_fixes_next_week_plan(db, workspace, team, monday):
     next_monday = monday + timedelta(days=7)
-    await _alloc(db, workspace, team, next_monday, "0.5")
+    await _alloc(db, workspace, team, next_monday, "half")
     await close_week(db, workspace.id, monday)
     plan = await get_snapshot(db, workspace.id, next_monday, "plan")
     assert plan is not None
+    assert plan.payload["allocations"][0]["category"] == "half"
+    # derived-вес пишется рядом — совместимость diff/accuracy со старыми снимками
     assert plan.payload["allocations"][0]["load"] == "0.5"
 
 
@@ -68,7 +70,7 @@ async def test_close_week_diff_vs_plan(db, workspace, team, monday):
         )
     )
     await db.commit()
-    await _alloc(db, workspace, team, monday, "0.5")
+    await _alloc(db, workspace, team, monday, "half")
     snapshot = await close_week(db, workspace.id, monday)
     diff = snapshot.payload["diff_vs_plan"]
     assert diff["had_plan"] is True
