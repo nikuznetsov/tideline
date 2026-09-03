@@ -204,6 +204,6 @@ docs/       SPEC.md, ARCHITECTURE.md, DECISIONS.md, DEMO.md, RESTORE.md, DEPLOY-
 - [docs/DEMO.md](docs/DEMO.md): a walkthrough of the demo data.
 - [docs/RESTORE.md](docs/RESTORE.md): what to do when something breaks.
 
-## Fonts
+## License
 
-Inter and Space Grotesk are bundled under the SIL Open Font License (see `frontend/public/fonts/`).
+[MIT](LICENSE). Inter and Space Grotesk are bundled under the SIL Open Font License (see `frontend/public/fonts/`).
