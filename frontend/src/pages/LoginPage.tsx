@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
+import { Wordmark } from "../components/Wordmark";
 
 export function LoginPage() {
   const [params] = useSearchParams();
@@ -19,9 +20,9 @@ export function LoginPage() {
     try {
       await api.post("/auth/login", { email, password });
       await queryClient.invalidateQueries({ queryKey: ["me"] });
-      // App перерисуется как авторизованный и уведёт на next / пространство
+      // App re-renders as authenticated and redirects to next / the workspace
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Не удалось войти — проверьте сеть");
+      setError(err instanceof ApiError ? err.message : "Could not log in — check your connection");
     } finally {
       setBusy(false);
     }
@@ -31,17 +32,16 @@ export function LoginPage() {
     <div className="flex min-h-full items-center justify-center overflow-auto bg-page py-8">
       <div className="w-[380px]">
         <div className="mb-4 flex items-baseline gap-2">
-          <span className="font-wide text-base font-bold uppercase">xOps</span>
-          <span className="font-wide text-base font-medium text-mts">Tideline</span>
+          <Wordmark size="base" />
         </div>
         <form
           onSubmit={submit}
           className="rounded-lg border border-line bg-surface p-6"
         >
-          <h1 className="font-wide text-sm font-bold">Вход</h1>
+          <h1 className="font-display text-sm font-bold">Log in</h1>
           {next?.startsWith("/join/") && (
             <p className="mt-1 text-xs text-muted">
-              После входа вы вернётесь к приглашению.
+              After logging in you will return to the invitation.
             </p>
           )}
           <label className="mt-4 block">
@@ -56,7 +56,7 @@ export function LoginPage() {
             />
           </label>
           <label className="mt-3 block">
-            <span className="mb-1 block text-xs text-muted">Пароль</span>
+            <span className="mb-1 block text-xs text-muted">Password</span>
             <input
               type="password"
               required
@@ -65,21 +65,21 @@ export function LoginPage() {
               className="w-full rounded border border-line bg-page px-3 py-2 text-sm"
             />
           </label>
-          {error && <p className="mt-3 text-xs text-mts">{error}</p>}
+          {error && <p className="mt-3 text-xs text-accent">{error}</p>}
           <button
             type="submit"
             disabled={busy}
-            className="mt-4 w-full rounded bg-mts px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="mt-4 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? "Вход…" : "Войти"}
+            {busy ? "Logging in…" : "Log in"}
           </button>
           <p className="mt-4 text-xs text-muted">
-            Нет аккаунта?{" "}
+            No account yet?{" "}
             <Link
               to={next ? `/register?next=${encodeURIComponent(next)}` : "/register"}
-              className="text-mts underline"
+              className="text-accent underline"
             >
-              Создать
+              Create one
             </Link>
           </p>
         </form>

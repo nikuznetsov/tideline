@@ -4,7 +4,7 @@ import { getWorkspaceSlug, wapi } from "../../api/client";
 import type { TimelineResponse } from "../../api/types";
 import { categoryWeight, type LoadCategory } from "../../lib/categories";
 
-/** Мутация одной ячейки: category=null — очистить. */
+/** Single-cell mutation: category=null clears it. */
 export interface CellChange {
   member_id: string;
   project_id: string;
@@ -23,7 +23,7 @@ export function timelineKey(from: string, to: string) {
   return ["timeline", from, to, getWorkspaceSlug()] as const;
 }
 
-/** Пересчёт производных полей после оптимистичного изменения аллокаций. */
+/** Recompute derived fields after an optimistic allocation change. */
 export function applyCells(
   data: TimelineResponse,
   cells: CellChange[],
@@ -156,7 +156,7 @@ export function useTimelineController(from: string, to: string) {
     },
     onError: (err) => {
       setSaveState("error");
-      setLastError(err instanceof Error ? err.message : "Ошибка сети");
+      setLastError(err instanceof Error ? err.message : "Network error");
       queryClient.invalidateQueries({ queryKey: ["timeline"] });
     },
     onSettled: () => {
@@ -168,7 +168,7 @@ export function useTimelineController(from: string, to: string) {
     },
   });
 
-  /** Текущие значения ячеек — для формирования undo-записи. */
+  /** Current cell values — to build the undo record. */
   const snapshotCells = useCallback(
     (cells: { member_id: string; project_id: string; day: string }[]): CellChange[] => {
       const data = queryClient.getQueryData<TimelineResponse>(timelineKey(from, to));
@@ -195,7 +195,7 @@ export function useTimelineController(from: string, to: string) {
     [queryClient, from, to],
   );
 
-  /** Главная операция: изменить набор ячеек с записью в undo. */
+  /** Main operation: change a set of cells, recording it in undo. */
   const setCells = useCallback(
     (cells: CellChange[]) => {
       if (!cells.length) return;

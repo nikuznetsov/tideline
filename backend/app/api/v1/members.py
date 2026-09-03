@@ -60,7 +60,7 @@ async def create_member(
     ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
-    # в команду попадают только участники пространства
+    # only workspace participants can join the team
     membership = (
         await db.execute(
             select(Membership).where(
@@ -70,7 +70,7 @@ async def create_member(
     ).scalar_one_or_none()
     if not membership:
         raise HTTPException(
-            422, "Этот аккаунт не участник пространства — сначала пригласите его"
+            422, "This account is not a workspace participant — invite them first"
         )
     target = await db.get(AppUser, body.user_id)
     existing = (
@@ -83,7 +83,7 @@ async def create_member(
         )
     ).scalar_one_or_none()
     if existing:
-        raise HTTPException(422, f"{target.name} уже в команде")
+        raise HTTPException(422, f"{target.name} is already in the team")
 
     max_order = (
         await db.execute(
@@ -126,7 +126,7 @@ async def patch_member(
         )
     ).scalar_one_or_none()
     if not member:
-        raise HTTPException(404, "Сотрудник не найден")
+        raise HTTPException(404, "Team member not found")
     before = _member_dict(member)
     for field in ("role_title", "capacity_per_day", "tags", "is_active"):
         value = getattr(body, field)
@@ -154,7 +154,7 @@ async def delete_member(
         )
     ).scalar_one_or_none()
     if not member:
-        raise HTTPException(404, "Сотрудник не найден")
+        raise HTTPException(404, "Team member not found")
     member.deleted_at = datetime.now(timezone.utc)
     member.is_active = False
     record_audit(db, ws.id, user.id, "member", member.id, "soft_delete",
@@ -217,7 +217,7 @@ async def create_absence(
     user: AppUser = Depends(get_current_user),
 ):
     if body.date_to < body.date_from:
-        raise HTTPException(422, "Дата окончания раньше даты начала")
+        raise HTTPException(422, "End date is before start date")
 
     member_ok = (
         await db.execute(
@@ -229,7 +229,7 @@ async def create_absence(
         )
     ).scalar_one_or_none()
     if not member_ok:
-        raise HTTPException(404, "Сотрудник не найден")
+        raise HTTPException(404, "Team member not found")
 
     from app.db.models import Allocation
     from app.domain.categories import CATEGORY_WEIGHTS
@@ -258,8 +258,8 @@ async def create_absence(
                 "days": len(days),
                 "total_load": round(total, 2),
                 "message": (
-                    f"В диапазоне уже есть загрузка: {len(days)} дн., "
-                    f"суммарно {round(total, 2)} дн."
+                    f"The range already has load on {len(days)} days, "
+                    f"{round(total, 2)} person-days in total"
                 ),
             },
         )
@@ -315,7 +315,7 @@ async def delete_absence(
         )
     ).scalar_one_or_none()
     if not absence:
-        raise HTTPException(404, "Отсутствие не найдено")
+        raise HTTPException(404, "Absence not found")
     record_audit(
         db, ws.id, user.id, "absence", absence.id, "delete",
         {

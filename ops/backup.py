@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Ежедневный бэкап: pg_dump + JSON-экспорт, шифрование age, выгрузка, ротация.
+"""Daily backup: pg_dump + JSON export, age encryption, upload, rotation.
 
-Запускается cron-сервисом/crontab и вручную: python ops/backup.py.
-Переменные окружения: DATABASE_URL, BACKUP_ENCRYPTION_KEY (публичный age-ключ
-получателя, age1...), хранилище — BACKUP_DIR (локальный каталог) или BACKUP_S3_*
-(см. storage.py), BACKUP_RETENTION_DAILY/WEEKLY/MONTHLY, RAILWAY_ENVIRONMENT.
+Run by a cron service/crontab or manually: python ops/backup.py.
+Environment variables: DATABASE_URL, BACKUP_ENCRYPTION_KEY (the recipient's public
+age key, age1...), storage — BACKUP_DIR (local directory) or BACKUP_S3_*
+(see storage.py), BACKUP_RETENTION_DAILY/WEEKLY/MONTHLY, RAILWAY_ENVIRONMENT.
 
-Выход с ненулевым кодом — сигнал для release-фазы остановить деплой.
+A non-zero exit code tells the release phase to stop the deploy.
 """
 
 import datetime as dt
@@ -35,7 +35,7 @@ def pg_dump(database_url: str, out: Path) -> None:
 
 
 def json_export(database_url: str, out: Path) -> None:
-    """Человекочитаемый экспорт пространства: независим от версии PostgreSQL."""
+    """Human-readable export of the workspace, independent of the PostgreSQL version."""
     import psycopg
 
     tables = [
@@ -47,7 +47,7 @@ def json_export(database_url: str, out: Path) -> None:
     with psycopg.connect(database_url) as conn:
         for table in tables:
             with conn.cursor() as cur:
-                cur.execute(f"SELECT * FROM {table}")  # noqa: S608 — имена из белого списка
+                cur.execute(f"SELECT * FROM {table}")  # noqa: S608 — table names come from the allowlist above
                 cols = [d.name for d in cur.description]
                 data[table] = [
                     {c: _jsonable(v) for c, v in zip(cols, row)} for row in cur.fetchall()
@@ -67,7 +67,7 @@ def _jsonable(v):
 
 
 def rotate(storage, prefix: str) -> None:
-    """7 ежедневных, 4 еженедельных (вс), 6 ежемесячных (1-е число)."""
+    """Keep 7 daily, 4 weekly (Sundays), 6 monthly (the 1st of the month)."""
     daily = int(os.environ.get("BACKUP_RETENTION_DAILY", "7"))
     weekly = int(os.environ.get("BACKUP_RETENTION_WEEKLY", "4"))
     monthly = int(os.environ.get("BACKUP_RETENTION_MONTHLY", "6"))
@@ -102,7 +102,7 @@ def main() -> None:
     database_url = env("DATABASE_URL").replace("postgresql+asyncpg://", "postgresql://")
     recipient = env("BACKUP_ENCRYPTION_KEY")
     environment = os.environ.get("RAILWAY_ENVIRONMENT", "production")
-    label = os.environ.get("BACKUP_LABEL")  # напр. pre-migration-{revision}
+    label = os.environ.get("BACKUP_LABEL")  # e.g. pre-migration-{revision}
     today = dt.date.today().isoformat()
     prefix = f"tideline/{environment}/"
     day_prefix = f"{prefix}{today}/" if not label else f"{prefix}{today}/{label}-"
@@ -129,11 +129,11 @@ def main() -> None:
 
 
 def record_status(database_url: str, environment: str) -> None:
-    """Отметка успеха в audit_log — по ней приложение отдаёт метрику
-    backup_last_success_timestamp (алерт: бэкапа не было больше 30 часов)."""
+    """Record success in audit_log — the app derives the backup_last_success_timestamp
+    metric from it (alert: no backup for more than 30 hours)."""
     import psycopg
 
-    slug = os.environ.get("WORKSPACE_SLUG", "xops")
+    slug = os.environ.get("WORKSPACE_SLUG", "main")
     try:
         with psycopg.connect(database_url) as conn, conn.cursor() as cur:
             cur.execute("SELECT id FROM workspace WHERE slug = %s", (slug,))
@@ -147,8 +147,8 @@ def record_status(database_url: str, environment: str) -> None:
                 """,
                 (row[0], json.dumps({"environment": environment})),
             )
-    except Exception as e:  # статус не должен ронять сам бэкап
-        print(f"WARN: не удалось записать статус бэкапа: {e}", file=sys.stderr)
+    except Exception as e:  # recording the status must never fail the backup itself
+        print(f"WARN: could not record backup status: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

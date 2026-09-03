@@ -1,7 +1,7 @@
-"""Категории загрузки: единственный источник истины для весов.
+"""Load categories: the single source of truth for weights.
 
-Пользователь вводит и видит только категорию; вес используется
-исключительно для агрегатов (перегруз, свободная ёмкость, человеко-дни).
+The user enters and sees only the category; the weight is used
+exclusively for aggregates (overload, free capacity, person-days).
 """
 from decimal import Decimal
 
@@ -14,23 +14,23 @@ CATEGORY_WEIGHTS: dict[str, Decimal] = {
     "full": Decimal("1"),
 }
 
-# порядок = возрастание веса
+# order = ascending weight
 CATEGORIES: tuple[str, ...] = tuple(CATEGORY_WEIGHTS)
 
 CATEGORY_CHECK = "category in ('background','half','most','full')"
 
 CATEGORY_LABELS: dict[str, str] = {
-    "background": "Фоново",
-    "half": "Наполовину",
-    "most": "Почти весь день",
-    "full": "Весь день",
+    "background": "Background",
+    "half": "Half day",
+    "most": "Most of the day",
+    "full": "Full day",
 }
 
 XLSX_LETTER: dict[str, str] = {
-    "background": "Ф",
-    "half": "Н",
-    "most": "П",
-    "full": "В",
+    "background": "B",
+    "half": "H",
+    "most": "M",
+    "full": "F",
 }
 
 
@@ -39,7 +39,7 @@ def weight(category: str) -> Decimal:
 
 
 def category_for_load(load: Decimal) -> str:
-    """Маппинг старой числовой загрузки в категорию (для миграции)."""
+    """Maps the old numeric load to a category (for the migration)."""
     if load <= Decimal("0.25"):
         return "background"
     if load <= Decimal("0.5"):
@@ -50,5 +50,5 @@ def category_for_load(load: Decimal) -> str:
 
 
 def weight_sql(column: sa.ColumnElement) -> sa.Case:
-    """CASE-выражение веса категории для SQL-агрегатов."""
+    """CASE expression of the category weight for SQL aggregates."""
     return sa.case(CATEGORY_WEIGHTS, value=column, else_=None)

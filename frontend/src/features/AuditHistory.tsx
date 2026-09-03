@@ -13,16 +13,16 @@ interface AuditEntry {
 }
 
 const ACTION_LABEL: Record<string, string> = {
-  create: "создание",
-  update: "изменение",
-  delete: "удаление",
-  soft_delete: "удаление",
-  add_update: "апдейт",
-  delete_update: "апдейт удалён",
-  replace_milestones: "вехи",
-  close_week: "закрытие недели",
-  undo_close_week: "откат закрытия",
-  revoke: "отзыв",
+  create: "created",
+  update: "changed",
+  delete: "deleted",
+  soft_delete: "deleted",
+  add_update: "update",
+  delete_update: "update deleted",
+  replace_milestones: "milestones",
+  close_week: "week closed",
+  undo_close_week: "week reopened",
+  revoke: "revoked",
 };
 
 function diffLine(entry: AuditEntry): string {
@@ -65,16 +65,16 @@ export function AuditHistory({
   });
 
   if (query.isLoading)
-    return <p className="text-xs text-muted">Загрузка истории…</p>;
+    return <p className="text-xs text-muted">Loading history…</p>;
   if (!query.data?.length)
-    return <p className="text-xs text-muted">Изменений пока не записано.</p>;
+    return <p className="text-xs text-muted">No changes recorded yet.</p>;
 
   return (
     <div className="space-y-1">
       {query.data.map((e) => (
         <div key={e.id} className="flex gap-3 text-xs">
           <span className="w-28 shrink-0 whitespace-nowrap text-muted font-nums">
-            {new Date(e.created_at).toLocaleString("ru", {
+            {new Date(e.created_at).toLocaleString("en-GB", {
               day: "2-digit",
               month: "2-digit",
               hour: "2-digit",

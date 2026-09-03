@@ -9,28 +9,28 @@ import { AuditHistory } from "../features/AuditHistory";
 import { fmtNum } from "../lib/format";
 import { Markdown } from "../lib/markdown";
 import { useWorkspace } from "../workspace";
+import { HealthDot } from "../components/HealthDot";
 
-const HEALTH: Record<string, string> = { green: "🟢", amber: "🟡", red: "🔴" };
 const HEALTH_LABEL: Record<string, string> = {
-  green: "в порядке",
-  amber: "требует внимания",
-  red: "проблемы",
+  green: "on track",
+  amber: "needs attention",
+  red: "problems",
 };
 const HEALTH_OPTIONS = ["green", "amber", "red"];
 const LIFECYCLE_OPTIONS: [string, string][] = [
-  ["active", "Активен"],
-  ["support", "Поддержка"],
-  ["paused", "Приостановлен"],
-  ["finished", "Завершён"],
+  ["active", "Active"],
+  ["support", "Support"],
+  ["paused", "Paused"],
+  ["finished", "Finished"],
 ];
 
 const CONTENT_FIELDS: [keyof ProjectDetail, string, string][] = [
-  ["goal", "Цель", "Зачем проект существует, одним абзацем"],
-  ["scope_md", "Задачи и вехи", "Что входит в текущую итерацию"],
+  ["goal", "Goal", "Why the project exists, in one paragraph"],
+  ["scope_md", "Tasks and milestones", "What the current iteration includes"],
   [
     "links_md",
-    "Ссылки",
-    "Confluence, репозитории, дашборды — и к кому идти за доступом. Детали проекта (риски, архитектура, решения) живут в Confluence.",
+    "Links",
+    "Confluence, repositories, dashboards — and who to ask for access. Project details (risks, architecture, decisions) live in Confluence.",
   ],
 ];
 
@@ -84,11 +84,11 @@ export function ProjectCardPage() {
   const [deletingProject, setDeletingProject] = useState(false);
   const [deletingUpdate, setDeletingUpdate] = useState<ProjectUpdateEntry | null>(null);
 
-  if (project.isLoading) return <p className="py-10 text-center text-muted">Загрузка…</p>;
+  if (project.isLoading) return <p className="py-10 text-center text-muted">Loading…</p>;
   if (!project.data)
     return (
       <p className="py-10 text-center text-sm text-muted">
-        Проект не найден. <Link to="../projects" className="underline">К реестру</Link>
+        Project not found. <Link to="../projects" className="underline">Back to the list</Link>
       </p>
     );
   const p = project.data;
@@ -115,10 +115,10 @@ export function ProjectCardPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-4">
       <div className="mb-1 text-xs text-muted">
-        <Link to={wsPath("/projects")} className="underline">Проекты</Link> / {p.code}
+        <Link to={wsPath("/projects")} className="underline">Projects</Link> / {p.code}
       </div>
 
-      {/* ---- верх: живой статус ---- */}
+      {/* ---- top: live status ---- */}
       <div className="rounded-lg border border-line bg-surface p-4">
         <div className="flex flex-wrap items-center gap-3">
           {editingName ? (
@@ -129,28 +129,28 @@ export function ProjectCardPage() {
               }}
               className="flex items-center gap-2"
             >
-              <span className="font-wide text-lg font-bold">{p.code} ·</span>
+              <span className="font-display text-lg font-bold">{p.code} ·</span>
               <input
                 value={nameDraft}
                 onChange={(e) => setNameDraft(e.target.value)}
                 autoFocus
                 onKeyDown={(e) => e.key === "Escape" && setEditingName(false)}
-                className="rounded border border-line bg-page px-2 py-1 font-wide text-lg font-bold"
-                aria-label="Название проекта"
+                className="rounded border border-line bg-page px-2 py-1 font-display text-lg font-bold"
+                aria-label="Project name"
               />
-              <button className="text-xs font-medium text-mts underline">
-                сохранить
+              <button className="text-xs font-medium text-accent underline">
+                save
               </button>
               <button
                 type="button"
                 onClick={() => setEditingName(false)}
                 className="text-xs text-muted underline"
               >
-                отмена
+                cancel
               </button>
             </form>
           ) : (
-            <h1 className="font-wide text-lg font-bold">
+            <h1 className="font-display text-lg font-bold">
               {p.code} · {p.name}
               {canEdit && (
                 <button
@@ -159,23 +159,24 @@ export function ProjectCardPage() {
                     setEditingName(true);
                   }}
                   className="ml-2 align-middle text-xs font-normal text-muted underline hover:text-ink"
-                  title="Переименовать проект"
+                  title="Rename project"
                 >
                   ✎
                 </button>
               )}
             </h1>
           )}
+          <HealthDot health={p.health} />
           <select
             disabled={!canEdit}
             value={p.health}
             onChange={(e) => patch.mutate({ health: e.target.value })}
             className="rounded border border-line bg-page px-1.5 py-1 text-sm"
-            title="Светофор проекта"
+            title="Project health"
           >
             {HEALTH_OPTIONS.map((h) => (
               <option key={h} value={h}>
-                {HEALTH[h]} {HEALTH_LABEL[h]}
+                {HEALTH_LABEL[h]}
               </option>
             ))}
           </select>
@@ -191,24 +192,24 @@ export function ProjectCardPage() {
           </select>
           {p.status_updated_at && (
             <span className="ml-auto text-xs text-muted">
-              обновлено {new Date(p.status_updated_at).toLocaleDateString("ru")}
+              updated {new Date(p.status_updated_at).toLocaleDateString("en-GB")}
             </span>
           )}
         </div>
 
-        {/* виджет загрузки — связь реестра с таймлайном */}
+        {/* load widget — links the project list to the timeline */}
         <div className="mt-4 rounded border border-line bg-page p-3">
           <div className="mb-1 flex items-baseline justify-between">
             <span className="text-xs font-medium uppercase tracking-wide text-muted">
-              Загрузка проекта · {rangeLabel(from, to)}
+              Project load · {rangeLabel(from, to)}
             </span>
             <span className="text-sm font-bold font-nums">
-              {load.data ? `${fmtNum(load.data.total_person_days)} дн.` : "…"}
+              {load.data ? `${fmtNum(load.data.total_person_days)} days` : "…"}
             </span>
           </div>
           {load.data && load.data.rows.length === 0 && (
             <p className="text-xs text-muted">
-              В текущем окне на проект никто не аллоцирован.
+              Nobody is allocated to this project in the current window.
             </p>
           )}
           {load.data && load.data.rows.length > 0 && (
@@ -226,13 +227,13 @@ export function ProjectCardPage() {
           )}
         </div>
 
-        {/* лог апдейтов — писать может любой участник пространства */}
+        {/* update log — any workspace participant can post */}
         <div className="mt-4">
           <form onSubmit={submitUpdate} className="mb-3 flex flex-wrap gap-2">
             <input
               value={updateText}
               onChange={(e) => setUpdateText(e.target.value)}
-              placeholder="Апдейт недели: что изменилось…"
+              placeholder="Weekly update: what changed…"
               className="min-w-52 flex-1 rounded border border-line bg-page px-3 py-2 text-sm"
             />
             <input
@@ -241,33 +242,33 @@ export function ProjectCardPage() {
               max={todayISO()}
               onChange={(e) => setUpdateDate(e.target.value)}
               className="rounded border border-line bg-page px-2 py-2 text-sm font-nums"
-              title="Дата апдейта — по умолчанию сегодня"
+              title="Update date — defaults to today"
             />
             {canEdit && (
               <select
                 value={updateHealth}
                 onChange={(e) => setUpdateHealth(e.target.value)}
                 className="rounded border border-line bg-page px-2 text-sm"
-                title="Сменить светофор вместе с апдейтом"
+                title="Change health along with the update"
               >
-                <option value="">Светофор без изменений</option>
+                <option value="">Health unchanged</option>
                 {HEALTH_OPTIONS.map((h) => (
-                  <option key={h} value={h}>{HEALTH[h]} {HEALTH_LABEL[h]}</option>
+                  <option key={h} value={h}>{HEALTH_LABEL[h]}</option>
                 ))}
               </select>
             )}
             <button className="rounded bg-ink px-3 py-2 text-sm font-medium text-surface">
-              Записать
+              Post
             </button>
           </form>
           <div className="space-y-2">
             {p.updates.map((u) => (
               <div key={u.id} className="group flex gap-3 text-sm">
                 <span className="w-20 shrink-0 text-xs leading-5 text-muted font-nums">
-                  {new Date(`${u.on_date}T00:00:00`).toLocaleDateString("ru")}
+                  {new Date(`${u.on_date}T00:00:00`).toLocaleDateString("en-GB")}
                 </span>
                 <span className="min-w-0">
-                  {u.health_after && <span className="mr-1">{HEALTH[u.health_after]}</span>}
+                  {u.health_after && <HealthDot health={u.health_after} className="mr-1.5" />}
                   {u.body}
                   {u.author_name && (
                     <span className="ml-2 text-xs text-muted">— {u.author_name}</span>
@@ -276,24 +277,24 @@ export function ProjectCardPage() {
                 {canEdit && (
                   <button
                     onClick={() => setDeletingUpdate(u)}
-                    className="ml-auto shrink-0 text-xs text-muted opacity-0 transition-opacity hover:text-mts group-hover:opacity-100"
-                    title="Удалить апдейт"
+                    className="ml-auto shrink-0 text-xs text-muted opacity-0 transition-opacity hover:text-accent group-hover:opacity-100"
+                    title="Delete update"
                   >
-                    удалить
+                    delete
                   </button>
                 )}
               </div>
             ))}
             {p.updates.length === 0 && (
               <p className="text-xs text-muted">
-                Апдейтов пока нет — первая запись появится после еженедельного статуса.
+                No updates yet — the first entry will appear after the weekly status.
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* ---- низ: содержательная часть (детали — в Confluence) ---- */}
+      {/* ---- bottom: content (details live in Confluence) ---- */}
       <div className="mt-4 space-y-3">
         {CONTENT_FIELDS.map(([field, label, hint]) => {
           const value = (p[field] as string | null) ?? "";
@@ -313,7 +314,7 @@ export function ProjectCardPage() {
                     }}
                     className="text-xs text-muted underline hover:text-ink"
                   >
-                    править
+                    edit
                   </button>
                   )
                 ) : (
@@ -323,15 +324,15 @@ export function ProjectCardPage() {
                         patch.mutate({ [field]: editValue });
                         setEditField(null);
                       }}
-                      className="text-xs font-medium text-mts underline"
+                      className="text-xs font-medium text-accent underline"
                     >
-                      сохранить
+                      save
                     </button>
                     <button
                       onClick={() => setEditField(null)}
                       className="text-xs text-muted underline"
                     >
-                      отмена
+                      cancel
                     </button>
                   </div>
                 )}
@@ -343,26 +344,26 @@ export function ProjectCardPage() {
                   rows={6}
                   autoFocus
                   className="w-full rounded border border-line bg-page p-2 font-mono text-xs"
-                  placeholder="Markdown: **жирный**, - списки, [ссылки](https://…)"
+                  placeholder="Markdown: **bold**, - lists, [links](https://…)"
                 />
               ) : value ? (
                 <Markdown text={value} />
               ) : (
-                <p className="text-xs text-muted">{hint}{canEdit ? " — нажмите «править»." : ""}</p>
+                <p className="text-xs text-muted">{hint}{canEdit ? " — click “edit”." : ""}</p>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* история изменений (аудит) */}
+      {/* change history (audit log) */}
       <div className="mt-4 rounded-lg border border-line bg-surface p-3">
         <button
           onClick={() => setHistoryOpen((v) => !v)}
           className="flex w-full items-center justify-between text-left"
         >
           <span className="text-xs font-medium uppercase tracking-wide text-muted">
-            История изменений
+            Change history
           </span>
           <span className="text-xs text-muted">{historyOpen ? "▾" : "▸"}</span>
         </button>
@@ -373,28 +374,28 @@ export function ProjectCardPage() {
         )}
       </div>
 
-      {/* удаление проекта — editor/owner, с записью в историю изменений */}
+      {/* project deletion — editor/owner, recorded in the change history */}
       {canEdit && (
         <div className="mt-4 text-right">
           <button
             onClick={() => setDeletingProject(true)}
-            className="text-xs text-muted underline hover:text-mts"
+            className="text-xs text-muted underline hover:text-accent"
           >
-            Удалить проект
+            Delete project
           </button>
         </div>
       )}
 
       {deletingProject && (
         <ConfirmDialog
-          title="Удалить проект"
+          title="Delete project"
           message={
             <>
-              Проект <b>{p.code} · {p.name}</b> будет удалён, вся его загрузка
-              снимется с таймлайна. Действие попадёт в историю изменений.
+              Project <b>{p.code} · {p.name}</b> will be deleted and all of its
+              load removed from the timeline. The action is recorded in the change history.
             </>
           }
-          confirmLabel="Удалить"
+          confirmLabel="Delete"
           verifyText={p.code}
           onConfirm={() => deleteProject.mutate()}
           onClose={() => setDeletingProject(false)}
@@ -402,18 +403,18 @@ export function ProjectCardPage() {
       )}
       {deletingUpdate && (
         <ConfirmDialog
-          title="Удалить апдейт"
+          title="Delete update"
           message={
             <>
-              Удалить апдейт от{" "}
+              Delete the update from{" "}
               <b className="font-nums">
-                {new Date(`${deletingUpdate.on_date}T00:00:00`).toLocaleDateString("ru")}
+                {new Date(`${deletingUpdate.on_date}T00:00:00`).toLocaleDateString("en-GB")}
               </b>
               {deletingUpdate.author_name && <> ({deletingUpdate.author_name})</>}?
-              Действие попадёт в историю изменений.
+              The action is recorded in the change history.
             </>
           }
-          confirmLabel="Удалить"
+          confirmLabel="Delete"
           onConfirm={() => deleteUpdate.mutate(deletingUpdate.id)}
           onClose={() => setDeletingUpdate(null)}
         />

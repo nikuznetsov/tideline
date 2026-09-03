@@ -48,12 +48,12 @@ async def register(
     enforce(login_limiter, request)
     email = body.email.strip().lower()
     if "@" not in email or "." not in email.split("@")[-1]:
-        raise HTTPException(422, "Похоже, это не email")
+        raise HTTPException(422, "This doesn't look like an email address")
     dup = (
         await db.execute(select(AppUser.id).where(AppUser.email == email))
     ).scalar_one_or_none()
     if dup:
-        raise HTTPException(422, "Этот email уже зарегистрирован — войдите")
+        raise HTTPException(422, "This email is already registered — log in instead")
     user = AppUser(
         email=email,
         name=f"{body.first_name.strip()} {body.last_name.strip()}",
@@ -80,7 +80,7 @@ async def login(
         )
     ).scalar_one_or_none()
     if not user or not verify_password(user.password_hash, body.password):
-        raise HTTPException(status_code=401, detail="Неверный email или пароль")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
     user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
     _set_session_cookie(response, str(user.id))
@@ -106,7 +106,7 @@ async def update_me(
 ):
     email = body.email.strip().lower()
     if "@" not in email or "." not in email.split("@")[-1]:
-        raise HTTPException(422, "Похоже, это не email")
+        raise HTTPException(422, "This doesn't look like an email address")
     if email != user.email:
         dup = (
             await db.execute(
@@ -116,7 +116,7 @@ async def update_me(
             )
         ).scalar_one_or_none()
         if dup:
-            raise HTTPException(422, "Этот email уже занят")
+            raise HTTPException(422, "This email is already taken")
     user.name = body.name.strip()
     user.email = email
     await db.commit()
@@ -130,7 +130,7 @@ async def change_password(
     db: AsyncSession = Depends(get_db),
 ):
     if not verify_password(user.password_hash, body.current_password):
-        raise HTTPException(400, "Текущий пароль неверный")
+        raise HTTPException(400, "Current password is incorrect")
     user.password_hash = hash_password(body.new_password)
     await db.commit()
     return {"ok": True}

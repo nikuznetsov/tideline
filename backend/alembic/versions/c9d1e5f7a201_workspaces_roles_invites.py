@@ -1,4 +1,4 @@
-"""итерация 2: роль по умолчанию у пространства и инвайт-ссылки
+"""iteration 2: default role on the workspace and invite links
 
 Revision ID: c9d1e5f7a201
 Revises: b7e2f4d90a11

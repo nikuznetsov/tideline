@@ -6,14 +6,14 @@ from app.db.models import Allocation
 
 async def test_login_wrong_password(client, workspace):
     resp = await client.post(
-        "/api/v1/auth/login", json={"email": "admin@example.com", "password": "нет"}
+        "/api/v1/auth/login", json={"email": "admin@example.com", "password": "nope"}
     )
     assert resp.status_code == 401
 
 
 async def test_timeline_requires_auth(client, workspace, monday):
     resp = await client.get(
-        f"/api/v1/w/xops/timeline?from={monday}&to={monday + timedelta(days=13)}"
+        f"/api/v1/w/acme/timeline?from={monday}&to={monday + timedelta(days=13)}"
     )
     assert resp.status_code == 401
 
@@ -22,7 +22,7 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
     member = team["members"][0]
     project = team["project"]
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(member.id),
             "project_id": str(project.id),
@@ -33,9 +33,9 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
     assert resp.status_code == 200, resp.text
     alloc_id = resp.json()["id"]
 
-    # тот же (member, project, day) — апсерт, не дубль
+    # same (member, project, day) — upsert, not a duplicate
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(member.id),
             "project_id": str(project.id),
@@ -48,7 +48,7 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
     assert resp.json()["category"] == "most"
 
     resp = await auth_client.get(
-        f"/api/v1/w/xops/timeline?from={monday}&to={monday + timedelta(days=13)}"
+        f"/api/v1/w/acme/timeline?from={monday}&to={monday + timedelta(days=13)}"
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -57,14 +57,14 @@ async def test_allocation_crud_and_timeline(auth_client, team, monday):
     assert data["day_totals"]
     assert len(data["weeks"]) == 2
 
-    resp = await auth_client.delete(f"/api/v1/w/xops/allocations/{alloc_id}")
+    resp = await auth_client.delete(f"/api/v1/w/acme/allocations/{alloc_id}")
     assert resp.status_code == 200
 
 
 async def test_allocation_rejects_weekend(auth_client, team, monday):
     saturday = monday + timedelta(days=5)
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
@@ -77,7 +77,7 @@ async def test_allocation_rejects_weekend(auth_client, team, monday):
 
 async def test_allocation_rejects_finished_project(auth_client, team, monday):
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["finished"].id),
@@ -91,7 +91,7 @@ async def test_allocation_rejects_finished_project(auth_client, team, monday):
 async def test_allocation_rejects_absence_day(auth_client, team, monday):
     member = team["members"][0]
     resp = await auth_client.post(
-        "/api/v1/w/xops/absences",
+        "/api/v1/w/acme/absences",
         json={
             "member_id": str(member.id),
             "date_from": monday.isoformat(),
@@ -101,7 +101,7 @@ async def test_allocation_rejects_absence_day(auth_client, team, monday):
     )
     assert resp.status_code == 200
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(member.id),
             "project_id": str(team["project"].id),
@@ -110,13 +110,13 @@ async def test_allocation_rejects_absence_day(auth_client, team, monday):
         },
     )
     assert resp.status_code == 422
-    assert "отпуск" in resp.json()["detail"].lower() or "отсутств" in resp.json()["detail"].lower()
+    assert "absence" in resp.json()["detail"].lower()
 
 
 async def test_absence_over_allocations_requires_confirmation(auth_client, team, monday):
     member = team["members"][0]
     await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(member.id),
             "project_id": str(team["project"].id),
@@ -130,24 +130,24 @@ async def test_absence_over_allocations_requires_confirmation(auth_client, team,
         "date_to": monday.isoformat(),
         "kind": "vacation",
     }
-    resp = await auth_client.post("/api/v1/w/xops/absences", json=payload)
+    resp = await auth_client.post("/api/v1/w/acme/absences", json=payload)
     assert resp.status_code == 409
     assert resp.json()["detail"]["code"] == "allocations_exist"
     assert resp.json()["detail"]["days"] == 1
 
     resp = await auth_client.post(
-        "/api/v1/w/xops/absences", json=payload | {"clear_allocations": True}
+        "/api/v1/w/acme/absences", json=payload | {"clear_allocations": True}
     )
     assert resp.status_code == 200
-    # аллокации в диапазоне удалены
+    # allocations in the range are deleted
     from_iso, to_iso = monday.isoformat(), monday.isoformat()
-    timeline = await auth_client.get(f"/api/v1/w/xops/timeline?from={from_iso}&to={to_iso}")
+    timeline = await auth_client.get(f"/api/v1/w/acme/timeline?from={from_iso}&to={to_iso}")
     assert timeline.json()["allocations"] == []
 
 
 async def test_bulk_fill_skips_weekend(auth_client, team, monday):
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations/bulk",
+        "/api/v1/w/acme/allocations/bulk",
         json={
             "items": [
                 {
@@ -161,12 +161,12 @@ async def test_bulk_fill_skips_weekend(auth_client, team, monday):
         },
     )
     assert resp.status_code == 200
-    assert resp.json()["affected"] == 5  # только будни
+    assert resp.json()["affected"] == 5  # weekdays only
 
 
 async def test_copy_week(auth_client, team, monday):
     await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
@@ -175,7 +175,7 @@ async def test_copy_week(auth_client, team, monday):
         },
     )
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations/copy-week",
+        "/api/v1/w/acme/allocations/copy-week",
         json={
             "from_week_start": monday.isoformat(),
             "to_week_start": (monday + timedelta(days=7)).isoformat(),
@@ -188,7 +188,7 @@ async def test_copy_week(auth_client, team, monday):
 
 async def test_capacity_search_endpoint(auth_client, team, monday):
     resp = await auth_client.get(
-        "/api/v1/w/xops/capacity/search",
+        "/api/v1/w/acme/capacity/search",
         params={
             "from": monday.isoformat(),
             "to": (monday + timedelta(days=4)).isoformat(),
@@ -197,70 +197,70 @@ async def test_capacity_search_endpoint(auth_client, team, monday):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["enough"] is True  # 3 человека * 5 дней = 15
+    assert data["enough"] is True  # 3 people * 5 days = 15
     assert Decimal(data["total_free"]) == Decimal("15")
     assert len(data["candidates"]) == 3
 
 
 async def test_project_registry_and_card(auth_client, team):
-    resp = await auth_client.get("/api/v1/w/xops/projects")
+    resp = await auth_client.get("/api/v1/w/acme/projects")
     assert resp.status_code == 200
     codes = [p["code"] for p in resp.json()]
     assert "TEST" in codes
-    assert "OLD" not in codes  # завершённые скрыты по умолчанию
+    assert "OLD" not in codes  # finished projects are hidden by default
 
-    resp = await auth_client.get("/api/v1/w/xops/projects", params={"include_finished": "true"})
+    resp = await auth_client.get("/api/v1/w/acme/projects", params={"include_finished": "true"})
     assert "OLD" in [p["code"] for p in resp.json()]
 
     project_id = [p for p in resp.json() if p["code"] == "TEST"][0]["id"]
     resp = await auth_client.post(
-        f"/api/v1/w/xops/projects/{project_id}/updates",
-        json={"body": "Новый апдейт", "health_after": "amber"},
+        f"/api/v1/w/acme/projects/{project_id}/updates",
+        json={"body": "New update", "health_after": "amber"},
     )
     assert resp.status_code == 200
-    resp = await auth_client.get(f"/api/v1/w/xops/projects/{project_id}")
+    resp = await auth_client.get(f"/api/v1/w/acme/projects/{project_id}")
     detail = resp.json()
     assert detail["health"] == "amber"
-    assert detail["updates"][0]["body"] == "Новый апдейт"
+    assert detail["updates"][0]["body"] == "New update"
 
 
 async def test_weekly_update_date_author_and_delete(auth_client, team):
     pid = str(team["project"].id)
-    # дата по умолчанию — сегодня, автор заполняется
+    # date defaults to today, author is filled in
     resp = await auth_client.post(
-        f"/api/v1/w/xops/projects/{pid}/updates", json={"body": "Сегодняшний"}
+        f"/api/v1/w/acme/projects/{pid}/updates", json={"body": "Today's"}
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["on_date"] == date.today().isoformat()
-    assert resp.json()["author_name"] == "Тимлид"
+    assert resp.json()["author_name"] == "Team lead"
 
-    # апдейт задним числом не перетирает сводку weekly_update
+    # a backdated update does not overwrite the weekly_update summary
     resp = await auth_client.post(
-        f"/api/v1/w/xops/projects/{pid}/updates",
-        json={"body": "Задним числом", "on_date": "2026-01-05"},
+        f"/api/v1/w/acme/projects/{pid}/updates",
+        json={"body": "Backdated", "on_date": "2026-01-05"},
     )
     old_id = resp.json()["id"]
-    detail = (await auth_client.get(f"/api/v1/w/xops/projects/{pid}")).json()
-    assert detail["weekly_update"] == "Сегодняшний"
-    assert [u["body"] for u in detail["updates"]] == ["Сегодняшний", "Задним числом"]
+    detail = (await auth_client.get(f"/api/v1/w/acme/projects/{pid}")).json()
+    assert detail["weekly_update"] == "Today's"
+    assert [u["body"] for u in detail["updates"]] == ["Today's", "Backdated"]
 
-    # удаление апдейта доступно editor/owner и пересчитывает сводку
-    resp = await auth_client.delete(f"/api/v1/w/xops/projects/{pid}/updates/{old_id}")
+    # deleting an update is available to editor/owner and recomputes the summary
+    resp = await auth_client.delete(f"/api/v1/w/acme/projects/{pid}/updates/{old_id}")
     assert resp.status_code == 200
-    detail = (await auth_client.get(f"/api/v1/w/xops/projects/{pid}")).json()
-    assert [u["body"] for u in detail["updates"]] == ["Сегодняшний"]
-    assert detail["weekly_update"] == "Сегодняшний"
+    detail = (await auth_client.get(f"/api/v1/w/acme/projects/{pid}")).json()
+    assert [u["body"] for u in detail["updates"]] == ["Today's"]
+    assert detail["weekly_update"] == "Today's"
 
-    # аудит: добавление и удаление записаны с именем автора
+    # audit: creation and deletion are recorded with the author's name
     log = (
         await auth_client.get(
-            "/api/v1/w/xops/audit",
+            "/api/v1/w/acme/audit",
             params={"entity_type": "project", "entity_id": pid},
         )
     ).json()
     actions = [e["action"] for e in log]
     assert "add_update" in actions and "delete_update" in actions
-    assert all(e["actor_name"] == "Тимлид" for e in log)
+    assert all(e["actor_name"] == "Team lead" for e in log)
 
 
 async def test_viewer_adds_update_but_cannot_delete_or_rename(
@@ -271,7 +271,7 @@ async def test_viewer_adds_update_but_cannot_delete_or_rename(
 
     viewer = AppUser(
         email="viewer@example.com",
-        name="Виктор",
+        name="Victor",
         password_hash=hash_password("secret-123"),
     )
     db.add(viewer)
@@ -286,21 +286,21 @@ async def test_viewer_adds_update_but_cannot_delete_or_rename(
 
     pid = str(team["project"].id)
     resp = await client2.post(
-        f"/api/v1/w/xops/projects/{pid}/updates", json={"body": "От вьюера"}
+        f"/api/v1/w/acme/projects/{pid}/updates", json={"body": "From a viewer"}
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["author_name"] == "Виктор"
+    assert resp.json()["author_name"] == "Victor"
     upd_id = resp.json()["id"]
 
-    # удалять апдейты и переименовывать проект viewer не может
-    resp = await client2.delete(f"/api/v1/w/xops/projects/{pid}/updates/{upd_id}")
+    # a viewer cannot delete updates or rename the project
+    resp = await client2.delete(f"/api/v1/w/acme/projects/{pid}/updates/{upd_id}")
     assert resp.status_code == 403
-    resp = await client2.patch(f"/api/v1/w/xops/projects/{pid}", json={"name": "Новое"})
+    resp = await client2.patch(f"/api/v1/w/acme/projects/{pid}", json={"name": "New"})
     assert resp.status_code == 403
-    # и не может сменить светофор через апдейт
+    # and cannot change health via an update
     resp = await client2.post(
-        f"/api/v1/w/xops/projects/{pid}/updates",
-        json={"body": "Хочу красный", "health_after": "red"},
+        f"/api/v1/w/acme/projects/{pid}/updates",
+        json={"body": "Want it red", "health_after": "red"},
     )
     assert resp.status_code == 403
 
@@ -309,68 +309,68 @@ async def test_delete_project_removes_allocations(auth_client, team, monday):
     pid = str(team["project"].id)
     mid = str(team["members"][0].id)
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={"member_id": mid, "project_id": pid, "day": monday.isoformat(), "category": "full"},
     )
     assert resp.status_code == 200
 
-    resp = await auth_client.delete(f"/api/v1/w/xops/projects/{pid}")
+    resp = await auth_client.delete(f"/api/v1/w/acme/projects/{pid}")
     assert resp.status_code == 200
     assert resp.json()["allocations_removed"] == 1
 
-    # проект пропал из реестра, карточка отвечает 404
-    codes = [p["code"] for p in (await auth_client.get("/api/v1/w/xops/projects")).json()]
+    # the project is gone from the registry, its card answers 404
+    codes = [p["code"] for p in (await auth_client.get("/api/v1/w/acme/projects")).json()]
     assert "TEST" not in codes
-    assert (await auth_client.get(f"/api/v1/w/xops/projects/{pid}")).status_code == 404
+    assert (await auth_client.get(f"/api/v1/w/acme/projects/{pid}")).status_code == 404
 
-    # загрузка снята с таймлайна
+    # load removed from the timeline
     tl = (
         await auth_client.get(
-            f"/api/v1/w/xops/timeline?from={monday}&to={monday + timedelta(days=6)}"
+            f"/api/v1/w/acme/timeline?from={monday}&to={monday + timedelta(days=6)}"
         )
     ).json()
     assert tl["allocations"] == []
 
-    # удаление записано в аудит с автором и числом снятых аллокаций
+    # deletion is recorded in the audit log with the author and the number of removed allocations
     log = (
         await auth_client.get(
-            "/api/v1/w/xops/audit",
+            "/api/v1/w/acme/audit",
             params={"entity_type": "project", "entity_id": pid},
         )
     ).json()
     dels = [e for e in log if e["action"] == "soft_delete"]
-    assert dels and dels[0]["actor_name"] == "Тимлид"
+    assert dels and dels[0]["actor_name"] == "Team lead"
     assert dels[0]["before"]["allocations_removed"] == 1
 
 
 async def test_support_lifecycle_and_rename_audited(auth_client, team):
     pid = str(team["project"].id)
     resp = await auth_client.patch(
-        f"/api/v1/w/xops/projects/{pid}", json={"lifecycle": "support"}
+        f"/api/v1/w/acme/projects/{pid}", json={"lifecycle": "support"}
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["lifecycle"] == "support"
-    # проекты на поддержке видны в реестре по умолчанию
-    codes = [p["code"] for p in (await auth_client.get("/api/v1/w/xops/projects")).json()]
+    # support projects are visible in the registry by default
+    codes = [p["code"] for p in (await auth_client.get("/api/v1/w/acme/projects")).json()]
     assert "TEST" in codes
 
     resp = await auth_client.patch(
-        f"/api/v1/w/xops/projects/{pid}", json={"name": "Переименован"}
+        f"/api/v1/w/acme/projects/{pid}", json={"name": "Renamed"}
     )
-    assert resp.json()["name"] == "Переименован"
+    assert resp.json()["name"] == "Renamed"
     log = (
         await auth_client.get(
-            "/api/v1/w/xops/audit",
+            "/api/v1/w/acme/audit",
             params={"entity_type": "project", "entity_id": pid},
         )
     ).json()
     renames = [e for e in log if e["action"] == "update" and "name" in (e["after"] or {})]
-    assert renames and renames[0]["before"]["name"] == "Тестовый проект"
+    assert renames and renames[0]["before"]["name"] == "Test project"
 
 
 async def test_week_close_endpoint(auth_client, team, monday):
     await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
@@ -379,27 +379,27 @@ async def test_week_close_endpoint(auth_client, team, monday):
         },
     )
     resp = await auth_client.post(
-        "/api/v1/w/xops/weeks/close", json={"week_start": monday.isoformat()}
+        "/api/v1/w/acme/weeks/close", json={"week_start": monday.isoformat()}
     )
     assert resp.status_code == 200
     resp = await auth_client.post(
-        "/api/v1/w/xops/weeks/close", json={"week_start": monday.isoformat()}
+        "/api/v1/w/acme/weeks/close", json={"week_start": monday.isoformat()}
     )
     assert resp.status_code == 422
     resp = await auth_client.post(
-        "/api/v1/w/xops/weeks/close/undo", json={"week_start": monday.isoformat()}
+        "/api/v1/w/acme/weeks/close/undo", json={"week_start": monday.isoformat()}
     )
     assert resp.status_code == 200
 
 
 async def test_export_xlsx(auth_client, team, monday):
     resp = await auth_client.get(
-        "/api/v1/w/xops/export/timeline.xlsx",
+        "/api/v1/w/acme/export/timeline.xlsx",
         params={"from": monday.isoformat(), "to": (monday + timedelta(days=13)).isoformat()},
     )
     assert resp.status_code == 200
-    assert resp.content[:2] == b"PK"  # zip-контейнер xlsx
-    resp = await auth_client.get("/api/v1/w/xops/export/projects.xlsx")
+    assert resp.content[:2] == b"PK"  # xlsx is a zip container
+    resp = await auth_client.get("/api/v1/w/acme/export/projects.xlsx")
     assert resp.status_code == 200
 
 
@@ -411,17 +411,17 @@ def test_export_escapes_formula_cells():
     assert _safe("-2") == "'-2"
     assert _safe("@x") == "'@x"
     assert _safe("\tHACK") == "'\tHACK"
-    # безопасные значения не трогаем
+    # safe values are left alone
     assert _safe("TEST") == "TEST"
-    assert _safe("Аня") == "Аня"
+    assert _safe("Anna") == "Anna"
     assert _safe(None) is None
 
 
 async def test_export_csv_escapes_injection(auth_client, db, team, monday):
-    """Код проекта с ведущим = не должен попасть в CSV как формула."""
+    """A project code with a leading = must not land in the CSV as a formula."""
     from app.db.models import Project
 
-    evil = Project(workspace_id=team["project"].workspace_id, code="=SUM(A1)", name="Злой")
+    evil = Project(workspace_id=team["project"].workspace_id, code="=SUM(A1)", name="Evil")
     db.add(evil)
     await db.flush()
     db.add(
@@ -436,7 +436,7 @@ async def test_export_csv_escapes_injection(auth_client, db, team, monday):
     await db.commit()
 
     resp = await auth_client.get(
-        "/api/v1/w/xops/export/timeline.csv",
+        "/api/v1/w/acme/export/timeline.csv",
         params={"from": monday.isoformat(), "to": (monday + timedelta(days=13)).isoformat()},
     )
     assert resp.status_code == 200
@@ -446,7 +446,7 @@ async def test_export_csv_escapes_injection(auth_client, db, team, monday):
 
 
 async def test_share_link_lifecycle(auth_client, client, team, monday):
-    resp = await auth_client.post("/api/v1/w/xops/share-links", json={})
+    resp = await auth_client.post("/api/v1/w/acme/share-links", json={})
     assert resp.status_code == 200
     token = resp.json()["token"]
     link_id = resp.json()["id"]
@@ -458,12 +458,12 @@ async def test_share_link_lifecycle(auth_client, client, team, monday):
 
     resp = await client.get(f"/api/v1/s/{token}/projects")
     assert resp.status_code == 200
-    # публичный сериализатор не отдаёт внутренние поля
+    # the public serializer does not expose internal fields
     if resp.json():
         assert "links_md" not in resp.json()[0]
         assert "goal" not in resp.json()[0]
 
-    resp = await auth_client.delete(f"/api/v1/w/xops/share-links/{link_id}")
+    resp = await auth_client.delete(f"/api/v1/w/acme/share-links/{link_id}")
     assert resp.status_code == 200
     resp = await client.get(f"/api/v1/s/{token}/timeline")
     assert resp.status_code == 404
@@ -478,34 +478,34 @@ async def test_input_validation_returns_422_not_500(auth_client, team):
     pid = str(team["project"].id)
     mid = str(team["members"][0].id)
 
-    # невалидные enum-значения → 422 (раньше доходили до CHECK и роняли 500)
+    # invalid enum values → 422 (they used to reach the CHECK and cause a 500)
     assert (await auth_client.patch(
-        f"/api/v1/w/xops/projects/{pid}", json={"lifecycle": "banana"}
+        f"/api/v1/w/acme/projects/{pid}", json={"lifecycle": "banana"}
     )).status_code == 422
     assert (await auth_client.patch(
-        f"/api/v1/w/xops/projects/{pid}", json={"health": "blue"}
+        f"/api/v1/w/acme/projects/{pid}", json={"health": "blue"}
     )).status_code == 422
     assert (await auth_client.post(
-        f"/api/v1/w/xops/projects/{pid}/updates",
+        f"/api/v1/w/acme/projects/{pid}/updates",
         json={"body": "x", "health_after": "blue"},
     )).status_code == 422
     assert (await auth_client.post(
-        "/api/v1/w/xops/absences",
+        "/api/v1/w/acme/absences",
         json={"member_id": mid, "date_from": "2026-08-01", "date_to": "2026-08-02", "kind": "nonsense"},
     )).status_code == 422
     assert (await auth_client.put(
-        f"/api/v1/w/xops/projects/{pid}/milestones",
+        f"/api/v1/w/acme/projects/{pid}/milestones",
         json=[{"title": "M", "status": "weird"}],
     )).status_code == 422
 
-    # capacity_per_day вне (0, 1] → 422 (в т.ч. переполнение Numeric и отрицательное)
+    # capacity_per_day outside (0, 1] → 422 (incl. Numeric overflow and negatives)
     for bad in ["99.5", "-1", "0", "1.5"]:
         r = await auth_client.patch(
-            f"/api/v1/w/xops/members/{mid}", json={"capacity_per_day": bad}
+            f"/api/v1/w/acme/members/{mid}", json={"capacity_per_day": bad}
         )
         assert r.status_code == 422, bad
     r = await auth_client.patch(
-        f"/api/v1/w/xops/members/{mid}", json={"capacity_per_day": "0.5"}
+        f"/api/v1/w/acme/members/{mid}", json={"capacity_per_day": "0.5"}
     )
     assert r.status_code == 200
 
@@ -528,22 +528,22 @@ async def test_integrity_error_maps_to_409():
 
 
 def test_rate_limiter_evicts_stale_keys():
-    """Словарь лимитера не растёт бесконечно: протухшие ключи выселяются."""
+    """The limiter dict does not grow without bound: stale keys are evicted."""
     import time
 
     from app.core.rate_limit import SlidingWindowLimiter
 
     lim = SlidingWindowLimiter(max_requests=5, window_seconds=0.01)
     for i in range(3000):
-        lim.check(f"ip-{i}")  # много уникальных IP (как публичный трафик)
-    time.sleep(0.02)  # окно истекло — все хиты протухли
+        lim.check(f"ip-{i}")  # many unique IPs (like public traffic)
+    time.sleep(0.02)  # the window has expired — all hits are stale
     for _ in range(SlidingWindowLimiter._SWEEP_EVERY):
-        lim.check("trigger")  # серия запросов гарантированно вызывает sweep
+        lim.check("trigger")  # a burst of requests is guaranteed to trigger a sweep
     assert len(lim._hits) <= 2, len(lim._hits)
 
 
 def test_rate_limiter_still_limits():
-    """Уборка не ломает сам лимит."""
+    """Cleanup does not break the limit itself."""
     from app.core.rate_limit import SlidingWindowLimiter
 
     lim = SlidingWindowLimiter(max_requests=3, window_seconds=60)

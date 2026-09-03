@@ -51,12 +51,12 @@ class Workspace(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    timezone: Mapped[str] = mapped_column(Text, default="Europe/Moscow", nullable=False)
+    timezone: Mapped[str] = mapped_column(Text, default="UTC", nullable=False)
     week_starts_on: Mapped[int] = mapped_column(SmallInteger, default=1, nullable=False)
     default_horizon_weeks: Mapped[int] = mapped_column(
         SmallInteger, default=2, nullable=False
     )
-    # роль, которую получает вошедший по инвайт-ссылке
+    # role granted to whoever joins via an invite link
     default_member_role: Mapped[str] = mapped_column(
         Text,
         CheckConstraint(
@@ -107,7 +107,7 @@ class Membership(Base):
 class Member(Base, TimestampMixin):
     __tablename__ = "member"
     __table_args__ = (
-        # сотрудник = участник пространства; один аккаунт — одна активная строка
+        # team member = workspace participant; one account — one active row
         Index(
             "uq_member_ws_user",
             "workspace_id",
@@ -166,7 +166,7 @@ class Project(Base, TimestampMixin):
         default="active",
         nullable=False,
     )
-    # «здоровье» проекта — светофор для менеджмента (не RAG, чтобы не путать с LLM)
+    # project health — a traffic light for management (not "RAG", to avoid confusion with LLM RAG)
     health: Mapped[str] = mapped_column(
         Text,
         CheckConstraint(
@@ -199,7 +199,7 @@ class ProjectUpdate(Base):
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     health_after: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # к какой дате относится апдейт; автор может поставить задним числом
+    # the date the update refers to; the author may backdate it
     on_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("app_user.id"), nullable=True
@@ -338,8 +338,8 @@ class ShareLink(Base):
     )
     token_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     token_prefix: Mapped[str] = mapped_column(Text, nullable=False)
-    # токен открытым текстом: ссылка отзываемая, владелец должен уметь
-    # скопировать её повторно; у старых ссылок NULL
+    # token in plain text: the link is revocable and the owner must be able
+    # to copy it again; NULL for old links
     token: Mapped[str | None] = mapped_column(Text, nullable=True)
     scope: Mapped[str] = mapped_column(Text, default="read", nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(
@@ -365,8 +365,8 @@ class InviteLink(Base):
     )
     token_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     token_prefix: Mapped[str] = mapped_column(Text, nullable=False)
-    # токен открытым текстом: приглашение многоразовое и отзываемое, владелец
-    # должен уметь скопировать ссылку повторно; у старых ссылок NULL
+    # token in plain text: the invite is reusable and revocable, the owner
+    # must be able to copy the link again; NULL for old links
     token: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("app_user.id"), nullable=True

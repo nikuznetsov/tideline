@@ -61,7 +61,7 @@ async def list_projects(
         q = q.where(Project.lifecycle != "finished")
     projects = (await db.execute(q.order_by(Project.code))).scalars().all()
 
-    # текущее число занятых людей — за текущую неделю, одним запросом
+    # current headcount — for the current week, in one query
     today = date.today()
     week_start = week_start_of(today)
     counts = dict(
@@ -105,7 +105,7 @@ async def create_project(
         )
     ).scalar_one_or_none()
     if dup:
-        raise HTTPException(422, f"Код проекта {body.code} уже занят")
+        raise HTTPException(422, f"Project code {body.code} is already taken")
     project = Project(
         workspace_id=ws.id,
         code=body.code,
@@ -138,7 +138,7 @@ async def get_project(
         )
     ).scalar_one_or_none()
     if not project:
-        raise HTTPException(404, "Проект не найден")
+        raise HTTPException(404, "Project not found")
     milestones = (
         (
             await db.execute(
@@ -191,7 +191,7 @@ async def patch_project(
         )
     ).scalar_one_or_none()
     if not project:
-        raise HTTPException(404, "Проект не найден")
+        raise HTTPException(404, "Project not found")
     data = body.model_dump(exclude_unset=True)
     before = {k: _jsonable(getattr(project, k)) for k in data}
     for k, v in data.items():
@@ -229,10 +229,10 @@ async def delete_project(
         )
     ).scalar_one_or_none()
     if not project:
-        raise HTTPException(404, "Проект не найден")
+        raise HTTPException(404, "Project not found")
     project.deleted_at = datetime.now(timezone.utc)
-    # загрузка удалённого проекта осталась бы на таймлайне безымянными
-    # строками — снимаем вместе с проектом (история недель живёт в снапшотах)
+    # a deleted project's load would linger on the timeline as nameless
+    # rows — remove it with the project (week history lives in snapshots)
     removed = (
         await db.execute(
             delete(Allocation).where(
@@ -251,7 +251,7 @@ async def delete_project(
 async def _refresh_weekly_update(
     db: AsyncSession, ws_id: uuid.UUID, project: Project
 ) -> None:
-    """weekly_update проекта — тело самого свежего апдейта (по дате)."""
+    """A project's weekly_update is the body of its most recent update (by date)."""
     latest = (
         await db.execute(
             select(ProjectUpdate)
@@ -266,7 +266,7 @@ async def _refresh_weekly_update(
     project.weekly_update = latest.body if latest else None
 
 
-# апдейт недели может добавить любой участник пространства, включая viewer
+# any workspace participant, including a viewer, may add a weekly update
 @router.post("/{project_id}/updates", response_model=ProjectUpdateOut)
 async def add_update(
     project_id: uuid.UUID,
@@ -286,10 +286,10 @@ async def add_update(
         )
     ).scalar_one_or_none()
     if not project:
-        raise HTTPException(404, "Проект не найден")
-    # текст апдейта пишет любой участник, но менять светофор viewer не может
+        raise HTTPException(404, "Project not found")
+    # any participant may write the update text, but a viewer cannot change health
     if body.health_after and role == "viewer":
-        raise HTTPException(403, "Смена светофора доступна редактору и владельцу")
+        raise HTTPException(403, "Only editors and owners can change health")
     update = ProjectUpdate(
         workspace_id=ws.id,
         project_id=project_id,
@@ -330,7 +330,7 @@ async def delete_update(
         )
     ).scalar_one_or_none()
     if not project:
-        raise HTTPException(404, "Проект не найден")
+        raise HTTPException(404, "Project not found")
     update = (
         await db.execute(
             select(ProjectUpdate).where(
@@ -341,7 +341,7 @@ async def delete_update(
         )
     ).scalar_one_or_none()
     if not update:
-        raise HTTPException(404, "Апдейт не найден")
+        raise HTTPException(404, "Update not found")
     record_audit(db, ws.id, user.id, "project", project.id, "delete_update",
                  {"body": update.body, "on_date": update.on_date.isoformat()}, None)
     await db.delete(update)
@@ -369,7 +369,7 @@ async def replace_milestones(
         )
     ).scalar_one_or_none()
     if not project:
-        raise HTTPException(404, "Проект не найден")
+        raise HTTPException(404, "Project not found")
 
     owner_ids = {m.owner_member_id for m in body if m.owner_member_id}
     if owner_ids:
@@ -387,7 +387,7 @@ async def replace_milestones(
             .all()
         )
         if owner_ids - valid:
-            raise HTTPException(422, "Ответственный за веху не найден в команде")
+            raise HTTPException(422, "Milestone owner not found in the team")
 
     existing = (
         (

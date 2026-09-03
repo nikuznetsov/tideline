@@ -1,6 +1,6 @@
-"""Список и запуск бэкапов. Сами бэкапы делает ops/backup.py (cron);
-здесь — чтение состояния хранилища (BACKUP_DIR или S3) для /admin/backups
-и запуск по требованию."""
+"""Listing and triggering backups. The backups themselves are made by ops/backup.py (cron);
+here we read the storage state (BACKUP_DIR or S3) for /admin/backups
+and run one on demand."""
 
 import asyncio
 import datetime as dt
@@ -14,7 +14,7 @@ from app.core.config import get_settings
 def _s3_client():
     settings = get_settings()
     if not (settings.backup_s3_endpoint and settings.backup_s3_bucket):
-        raise RuntimeError("Хранилище бэкапов не сконфигурировано (BACKUP_S3_*)")
+        raise RuntimeError("Backup storage is not configured (BACKUP_S3_*)")
     import boto3
 
     return (
@@ -63,7 +63,7 @@ async def list_backups() -> list[dict]:
             items = _local_items(Path(settings.backup_dir))
         else:
             items = _s3_items()
-        # статус верификации: рядом с dump.pgc.age лежит маркер .verified
+        # verification status: a .verified marker sits next to dump.pgc.age
         verified_keys = {i["key"] for i in items if i["key"].endswith(".verified")}
         for i in items:
             i["verified"] = f"{i['key']}.verified" in verified_keys
@@ -73,10 +73,10 @@ async def list_backups() -> list[dict]:
 
 
 async def run_backup_now() -> dict:
-    """Запускает ops/backup.py как подпроцесс."""
+    """Runs ops/backup.py as a subprocess."""
     script = Path(__file__).resolve().parents[3].parent / "ops" / "backup.py"
     if not script.exists():
-        raise RuntimeError("ops/backup.py не найден")
+        raise RuntimeError("ops/backup.py not found")
 
     def _run():
         proc = subprocess.run(

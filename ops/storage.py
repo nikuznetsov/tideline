@@ -1,8 +1,8 @@
-"""Хранилище бэкапов: локальный каталог (BACKUP_DIR) или S3 (BACKUP_S3_*).
+"""Backup storage: a local directory (BACKUP_DIR) or S3 (BACKUP_S3_*).
 
-Ключи везде вида tideline/{environment}/{дата}/dump.pgc.age — при переходе
-с локального каталога на S3 меняются только переменные окружения, раскладка
-и скрипты остаются теми же.
+Keys always look like tideline/{environment}/{date}/dump.pgc.age — when moving
+from a local directory to S3 only the environment variables change; the layout
+and the scripts stay the same.
 """
 
 import os
@@ -14,13 +14,13 @@ from pathlib import Path
 def env(name: str, default: str | None = None) -> str:
     value = os.environ.get(name, default)
     if value is None:
-        print(f"ERROR: переменная {name} не задана", file=sys.stderr)
+        print(f"ERROR: environment variable {name} is not set", file=sys.stderr)
         sys.exit(2)
     return value
 
 
 class LocalStorage:
-    """Каталог на диске (например, /backups — маунт /var/backups/tideline с хоста)."""
+    """A directory on disk (e.g. /backups — a mount of /var/backups/tideline from the host)."""
 
     def __init__(self, root: str) -> None:
         self.root = Path(root)
@@ -49,7 +49,7 @@ class LocalStorage:
     def delete(self, key: str) -> None:
         path = self.root / key
         path.unlink()
-        # прибрать опустевшие каталоги дат
+        # tidy up date directories that became empty
         parent = path.parent
         while parent != self.root and not any(parent.iterdir()):
             parent.rmdir()
@@ -61,8 +61,8 @@ class S3Storage:
         import boto3
         from botocore.config import Config
 
-        # region по умолчанию auto (как у R2/Railway Bucket) — иначе boto3 падает
-        # без региона; path-style адресация совместима с любым S3-провайдером
+        # region defaults to auto (as with R2/Railway Bucket) — otherwise boto3 fails
+        # without a region; path-style addressing works with any S3 provider
         self.client = boto3.client(
             "s3",
             endpoint_url=env("BACKUP_S3_ENDPOINT"),

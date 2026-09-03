@@ -1,4 +1,4 @@
-"""Инициализация: пространство и первый пользователь из env."""
+"""Bootstrap: the workspace and the first user from env."""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +31,7 @@ async def ensure_bootstrap(db: AsyncSession) -> Workspace:
     if not user:
         user = AppUser(
             email=settings.admin_email.lower(),
-            name="Тимлид",
+            name="Team lead",
             password_hash=hash_password(settings.admin_password),
             is_superuser=True,
         )

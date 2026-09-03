@@ -1,84 +1,89 @@
-# ADR — журнал решений
+# ADR — decision log
 
-## ADR-1. Собственная сетка вместо готовой таблицы
+## ADR-1. A custom grid instead of an off-the-shelf table
 
-**Контекст.** Главный экран — сетка с клавиатурным вводом (быстрые клавиши
-долей дня), drag-fill, прямоугольным выделением и сворачиваемыми блоками
-сотрудников с вложенными строками проектов.
+**Context.** The main screen is a grid driven by keyboard input (hotkeys for
+load categories), drag-fill, rectangular selection and collapsible team member
+blocks with nested project rows.
 
-**Решение.** Пишем сетку сами на CSS Grid + обработчиках клавиатуры/мыши.
+**Decision.** Build the grid ourselves on CSS Grid plus keyboard/mouse handlers.
 
-**Почему.** Generic-гриды (AG Grid, Handsontable, TanStack Table) дают модель
-«ячейка = поле записи». У нас ячейка — это (сотрудник × проект × день) с
-агрегатной строкой сверху, вложенными строками и режимом «только чтение» для
-публичной ссылки. Борьба с чужими абстракциями (кастомные редакторы, перехват
-клавиш, вложенные строки, стили состояний) обошлась бы дороже своей реализации,
-а бандл — тяжелее. Виртуализация при 9 сотрудниках не нужна; навигационная
-модель (плоский список редактируемых строк) позволяет добавить её позже.
+**Why.** Generic grids (AG Grid, Handsontable, TanStack Table) assume a
+"cell = record field" model. Our cell is (team member × project × day) with an
+aggregate row on top, nested rows and a read-only mode for the public link.
+Fighting someone else's abstractions (custom editors, key interception, nested
+rows, state styling) would cost more than writing our own, and the bundle would
+be heavier. Virtualization is unnecessary for 9 team members; the navigation
+model (a flat list of editable rows) lets us add it later.
 
-## ADR-2. Один сервис: FastAPI отдаёт SPA
+## ADR-2. One service: FastAPI serves the SPA
 
-**Решение.** Фронтенд собирается в статику и отдаётся FastAPI как SPA-fallback.
+**Decision.** The frontend is built to static files and served by FastAPI with
+an SPA fallback.
 
-**Почему.** Один сервис на Railway вместо двух: меньше стоимость, нет CORS,
-одна точка TLS/заголовков безопасности, один деплой. Минус — релиз фронта
-требует пересборки образа; для инструмента на одну команду это не имеет значения.
+**Why.** One service instead of two: lower cost, no CORS, a single place for
+TLS and security headers, a single deploy. The downside is that a frontend
+release requires rebuilding the image; for a single-team tool that does not
+matter.
 
-## ADR-3. `workspace_id` везде с первого дня
+## ADR-3. `workspace_id` everywhere from day one
 
-**Решение.** Все таблицы, запросы, уникальные ключи и индексы включают
-`workspace_id`, хотя пространство одно.
+**Decision.** All tables, queries, unique keys and indexes include
+`workspace_id`, even though there is only one workspace.
 
-**Почему.** Ретрофит мультиарендности в живую однопользовательскую схему —
-дорогая и рискованная операция (переливка данных, переписывание всех запросов,
-пересборка уникальных индексов). Цена сейчас — один столбец и дисциплина в
-слое доступа; тест изоляции написан до появления второго пространства.
+**Why.** Retrofitting multi-tenancy into a live single-user schema is expensive
+and risky (data migration, rewriting every query, rebuilding unique indexes).
+The cost today is one column and discipline in the data access layer; the
+isolation test was written before a second workspace existed.
 
-## ADR-4. Дни — `date`, не `timestamp`
+## ADR-4. Days are `date`, not `timestamp`
 
-**Решение.** Аллокации, отсутствия и праздники хранятся как календарные даты.
+**Decision.** Allocations, absences and holidays are stored as calendar dates.
 
-**Почему.** День планирования — это день в таймзоне команды, а не момент
-времени. `timestamp` + конвертации — классический источник сдвига на сутки
-вокруг полуночи и переходов на летнее время.
+**Why.** A planning day is a day in the team's timezone, not an instant in
+time. `timestamp` plus conversions is the classic source of off-by-one-day
+errors around midnight and DST transitions.
 
-## ADR-5. Снимки недель — самодостаточный JSON
+## ADR-5. Week snapshots are self-contained JSON
 
-**Решение.** «Закрыть неделю» пишет в `week_snapshot.payload` полный слепок
-аллокаций с именами и кодами, diff план/факт считается по слепкам.
+**Decision.** "Close week" writes a complete copy of the allocations, including
+names and codes, into `week_snapshot.payload`; the plan/actual diff is computed
+from snapshots.
 
-**Почему.** История не должна меняться задним числом при переименовании
-проекта или удалении сотрудника. Слепок также служит логическим бэкапом уровня
-приложения и входом для экрана точности планирования.
+**Why.** History must not change retroactively when a project is renamed or a
+team member is deleted. The snapshot also serves as an application-level
+logical backup and as the input for the planning accuracy screen.
 
-## ADR-6. Токены ссылок — хеши в БД
+## ADR-6. Link tokens are stored as hashes
 
-**Решение.** Read-only токен (32 байта энтропии) показывается один раз,
-в БД лежит SHA-256 и 8-символьный префикс для UI.
+**Decision.** A read-only token (32 bytes of entropy) is shown once; the
+database holds its SHA-256 hash and an 8-character prefix for the UI.
 
-**Почему.** Утечка дампа БД не должна раскрывать действующие ссылки. Отзыв —
-`revoked_at`, действует немедленно, невалидный токен отвечает 404, не раскрывая
-существования ссылки.
+**Why.** A leaked database dump must not expose working links. Revocation is
+`revoked_at` and takes effect immediately; an invalid token gets a 404 without
+revealing whether the link exists.
 
-## ADR-7. Бэкап — вне Railway, шифрован, с проверкой восстановимости
+## ADR-7. Backups: off-host, encrypted, restore-tested
 
-**Решение.** `pg_dump -Fc` + JSON-экспорт, шифрование age, S3-совместимый бакет
-(R2/B2), ротация 7/4/6, еженедельное тестовое восстановление с проверками,
-pre-deploy дамп перед миграциями, деплой падает при неудаче бэкапа.
+**Decision.** `pg_dump -Fc` plus a JSON export, age encryption, an
+S3-compatible bucket (R2/B2), 7/4/6 rotation, a weekly test restore with
+checks, a pre-deploy dump before migrations, and the deploy fails if the backup
+fails.
 
-**Почему.** Бэкап в той же инфраструктуре, что и БД, — не бэкап. Непроверенный
-бэкап считается отсутствующим. JSON-экспорт — страховка от несовместимости
-версий PostgreSQL и путь миграции на другой стек.
+**Why.** A backup on the same infrastructure as the database is not a backup.
+An unverified backup counts as no backup. The JSON export is insurance against
+PostgreSQL version incompatibility and a migration path to another stack.
 
-## ADR-8. Сотрудник = участник пространства
+## ADR-8. Team member = workspace participant
 
-**Решение.** Строка таймлайна (`member`) обязана ссылаться на аккаунт
-(`member.user_id → app_user`); в команду добавляют выбором из участников,
-свободного ввода имён нет. Обратное неверно: участник может иметь доступ,
-не будучи на таймлайне (менеджмент, смежники).
+**Decision.** A timeline row (`member`) must reference an account
+(`member.user_id → app_user`); people are added to the team by picking from the
+participants, there is no free-text name entry. The reverse does not hold: a
+participant may have access without being on the timeline (management,
+adjacent teams).
 
-**Почему.** Две несвязанные сущности «человек в планировании» и «человек с
-доступом» дублировали друг друга и расходились. Инварианты: активная строка
-уникальна на аккаунт (частичный уникальный индекс), отзыв доступа мягко
-удаляет строку с таймлайна, история аллокаций сохраняется. `user_id`
-допускает NULL только ради исторических мягко удалённых строк.
+**Why.** Two unrelated entities — "a person being planned" and "a person with
+access" — duplicated each other and drifted apart. Invariants: one active row
+per account (partial unique index); revoking access soft-deletes the timeline
+row; allocation history is preserved. `user_id` allows NULL only for historical
+soft-deleted rows.

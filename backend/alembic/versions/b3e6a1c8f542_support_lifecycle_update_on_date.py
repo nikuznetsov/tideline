@@ -1,4 +1,4 @@
-"""Статус проекта 'support'; дата апдейта недели on_date
+"""Project status 'support'; weekly update date on_date
 
 Revision ID: b3e6a1c8f542
 Revises: a2c5e7f9d813
@@ -17,7 +17,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def _project_table(lifecycle_check: str) -> sa.Table:
-    """Явное описание project для SQLite: CHECK-констрейнты не рефлектируются."""
+    """Explicit description of project for SQLite: CHECK constraints are not reflected."""
     return sa.Table(
         "project",
         sa.MetaData(),
@@ -61,7 +61,7 @@ NEW_CHECK = "lifecycle in ('active','support','paused','finished')"
 
 
 def _ensure_ws_index() -> None:
-    """SQLite-пересоздание таблицы теряет ix_project_workspace_id — вернуть."""
+    """SQLite table recreation loses ix_project_workspace_id — restore it."""
     insp = sa.inspect(op.get_bind())
     names = {ix["name"] for ix in insp.get_indexes("project")}
     if "ix_project_workspace_id" not in names:
@@ -71,14 +71,14 @@ def _ensure_ws_index() -> None:
 def _replace_lifecycle_check(old_check: str, new_check: str) -> None:
     bind = op.get_bind()
     if bind.dialect.name == "sqlite":
-        # SQLite: чек живёт в DDL таблицы, пересоздание через copy_from
+        # SQLite: the check lives in the table DDL; recreate via copy_from
         with op.batch_alter_table("project", copy_from=_project_table(old_check)) as batch:
             batch.drop_constraint("ck_project_lifecycle", type_="check")
             batch.create_check_constraint("ck_project_lifecycle", new_check)
         _ensure_ws_index()
         return
-    # Postgres: чек может называться иначе или отсутствовать вовсе
-    # (прод-схема исторически создавалась без именованных чеков)
+    # Postgres: the check may be named differently or be missing entirely
+    # (the production schema was historically created without named checks)
     insp = sa.inspect(bind)
     for ck in insp.get_check_constraints("project"):
         if "lifecycle" in (ck.get("sqltext") or ""):
@@ -89,7 +89,7 @@ def _replace_lifecycle_check(old_check: str, new_check: str) -> None:
 def upgrade() -> None:
     _replace_lifecycle_check(OLD_CHECK, NEW_CHECK)
     op.add_column("project_update", sa.Column("on_date", sa.Date(), nullable=True))
-    # у существующих апдейтов дата = день создания
+    # existing updates get date = creation day
     op.execute("UPDATE project_update SET on_date = date(created_at)")
     with op.batch_alter_table("project_update") as batch:
         batch.alter_column("on_date", nullable=False, existing_type=sa.Date())

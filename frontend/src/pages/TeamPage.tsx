@@ -26,7 +26,7 @@ export function TeamPage() {
     queryKey: ["members", getWorkspaceSlug()],
     queryFn: () => wapi.get<Member[]>("/members"),
   });
-  // список участników с email — только владельцу (управление доступом)
+  // participant list with emails — owner only (access management)
   const participants = useQuery<Participant[]>({
     queryKey: ["participants", current.slug],
     queryFn: () => api.get<Participant[]>(`/w/${current.slug}/participants`),
@@ -39,7 +39,7 @@ export function TeamPage() {
     queryClient.invalidateQueries({ queryKey: ["timeline"] });
   };
   const onError = (e: unknown) =>
-    setError(e instanceof ApiError ? e.message : "Не удалось сохранить");
+    setError(e instanceof ApiError ? e.message : "Could not save");
 
   const create = useMutation({
     mutationFn: (body: { user_id: string; role_title: string | null }) =>
@@ -86,12 +86,12 @@ export function TeamPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4">
-      <h1 className="mb-4 font-wide text-lg font-bold">Команда</h1>
-      <h2 className="mb-1 font-wide text-base font-bold">Сотрудники на таймлайне</h2>
+      <h1 className="mb-4 font-display text-lg font-bold">Team</h1>
+      <h2 className="mb-1 font-display text-base font-bold">Team members on the timeline</h2>
       <p className="mb-4 text-xs text-muted">
-        Команда собирается из участников пространства: у каждого сотрудника есть
-        аккаунт и доступ. Порядок строк здесь — порядок на таймлайне; удаление
-        мягкое, история аллокаций остаётся.
+        The team is built from workspace participants: every team member has an
+        account and access. The row order here is the order on the timeline;
+        removal is soft, the allocation history is kept.
       </p>
 
       {isOwner && (
@@ -107,14 +107,14 @@ export function TeamPage() {
           className="mb-4 flex flex-wrap items-end gap-2 rounded-lg border border-line bg-surface p-3"
         >
           <label className="text-xs text-muted">
-            Участник
+            Participant
             <select
               value={selectedUser}
               onChange={(e) => setSelectedUser(e.target.value)}
               required
               className="mt-1 block w-56 rounded border border-line bg-page px-2 py-1.5 text-sm text-ink"
             >
-              <option value="">— выберите —</option>
+              <option value="">— select —</option>
               {candidates.map((p) => (
                 <option key={p.user_id} value={p.user_id}>
                   {p.name} ({p.email})
@@ -123,36 +123,36 @@ export function TeamPage() {
             </select>
           </label>
           <label className="flex-1 text-xs text-muted">
-            Роль в команде
+            Team role
             <input
               value={roleTitle}
               onChange={(e) => setRoleTitle(e.target.value)}
-              placeholder="ML-инженер"
+              placeholder="ML engineer"
               className="mt-1 block w-full rounded border border-line bg-page px-2 py-1.5 text-sm text-ink"
             />
           </label>
           <button
             type="submit"
             disabled={create.isPending || !selectedUser}
-            className="rounded bg-mts px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="rounded bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
           >
-            В команду
+            Add to team
           </button>
           {participants.isSuccess && candidates.length === 0 && (
             <span className="text-xs text-muted">
-              Все участники уже в команде — новых можно позвать инвайт-ссылкой ниже.
+              All participants are already on the team — invite new people with the invite link below.
             </span>
           )}
         </form>
       )}
 
-      {error && <p className="mb-3 text-xs text-mts">{error}</p>}
-      {members.isLoading && <p className="py-8 text-center text-muted">Загрузка…</p>}
+      {error && <p className="mb-3 text-xs text-accent">{error}</p>}
+      {members.isLoading && <p className="py-8 text-center text-muted">Loading…</p>}
       {members.isSuccess && rows.length === 0 && (
         <p className="rounded-lg border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
           {isOwner
-            ? "В команде пока никого нет. Пригласите людей ссылкой из блока «Доступ в пространство» ниже и добавьте их сюда."
-            : "В команде пока никого нет. Добавить сотрудников может владелец пространства."}
+            ? "Nobody is on the team yet. Invite people with the link from the “Workspace access” section below and add them here."
+            : "Nobody is on the team yet. The workspace owner can add team members."}
         </p>
       )}
 
@@ -161,10 +161,10 @@ export function TeamPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-muted">
-                <th className="w-16 px-2 py-2">Порядок</th>
-                <th className="px-3 py-2">Сотрудник</th>
-                <th className="px-3 py-2">Роль в команде</th>
-                <th className="px-2 py-2">Активен</th>
+                <th className="w-16 px-2 py-2">Order</th>
+                <th className="px-3 py-2">Team member</th>
+                <th className="px-3 py-2">Team role</th>
+                <th className="px-2 py-2">Active</th>
                 <th className="w-40 px-2 py-2" />
               </tr>
             </thead>
@@ -191,14 +191,14 @@ export function TeamPage() {
 
       {removing && (
         <ConfirmDialog
-          title="Убрать из команды"
+          title="Remove from team"
           message={
             <>
-              Убрать <b>«{removing.name}»</b> из команды? Доступ в пространство
-              останется, история аллокаций сохранится.
+              Remove <b>“{removing.name}”</b> from the team? Workspace access
+              stays, the allocation history is kept.
             </>
           }
-          confirmLabel="Убрать"
+          confirmLabel="Remove"
           onConfirm={() => remove.mutate(removing.id)}
           onClose={() => setRemoving(null)}
         />
@@ -237,7 +237,7 @@ function MemberRow({
             onClick={onUp}
             disabled={isFirst || !canEdit}
             className="rounded border border-line px-1.5 py-0.5 text-xs hover:bg-page disabled:opacity-30"
-            title="Выше на таймлайне"
+            title="Move up on the timeline"
           >
             ↑
           </button>
@@ -245,7 +245,7 @@ function MemberRow({
             onClick={onDown}
             disabled={isLast || !canEdit}
             className="ml-1 rounded border border-line px-1.5 py-0.5 text-xs hover:bg-page disabled:opacity-30"
-            title="Ниже на таймлайне"
+            title="Move down on the timeline"
           >
             ↓
           </button>
@@ -275,20 +275,20 @@ function MemberRow({
             disabled={!canEdit}
             checked={member.is_active}
             onChange={(e) => onPatch({ is_active: e.target.checked })}
-            title={member.is_active ? "Скрыть из сетки и поиска" : "Вернуть в сетку"}
+            title={member.is_active ? "Hide from the grid and search" : "Return to the grid"}
           />
         </td>
         <td className="whitespace-nowrap px-2 py-1.5 text-right">
           <button
             onClick={() => setHistoryOpen((v) => !v)}
             className="mr-2 text-xs text-muted underline hover:text-ink"
-            title="История изменений сотрудника"
+            title="Team member change history"
           >
-            история
+            history
           </button>
           {canEdit && (
-            <button onClick={onDelete} className="text-xs text-mts underline">
-              Убрать из команды
+            <button onClick={onDelete} className="text-xs text-accent underline">
+              Remove from team
             </button>
           )}
         </td>

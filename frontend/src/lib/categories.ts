@@ -1,6 +1,6 @@
-/** Категории загрузки: зеркало backend/app/domain/categories.py.
- * Пользователь видит только категории; веса — для оптимистичных агрегатов,
- * сервер остаётся источником истины. */
+/** Load categories: mirror of backend/app/domain/categories.py.
+ * The user only sees categories; weights are for optimistic aggregates,
+ * the server remains the source of truth. */
 
 export type LoadCategory = "background" | "half" | "most" | "full";
 
@@ -14,10 +14,10 @@ export const CATEGORY_WEIGHT: Record<LoadCategory, number> = {
 };
 
 export const CATEGORY_LABEL: Record<LoadCategory, string> = {
-  background: "Фоново",
-  half: "Наполовину",
-  most: "Почти весь день",
-  full: "Весь день",
+  background: "Background",
+  half: "Half day",
+  most: "Most of the day",
+  full: "Full day",
 };
 
 export const CATEGORY_GLYPH: Record<LoadCategory, string> = {
@@ -27,7 +27,7 @@ export const CATEGORY_GLYPH: Record<LoadCategory, string> = {
   full: "█",
 };
 
-/** Быстрая клавиша категории — мышечная память старых числовых значений. */
+/** Category hotkey — muscle memory from the old numeric values. */
 export const CATEGORY_KEY: Record<LoadCategory, string> = {
   background: "2",
   half: "5",
@@ -39,7 +39,7 @@ export function categoryWeight(c: LoadCategory | null | undefined): number {
   return c ? CATEGORY_WEIGHT[c] : 0;
 }
 
-/* классы — полными литералами: Tailwind не видит собранные в рантайме строки */
+/* classes as full literals: Tailwind cannot see strings assembled at runtime */
 const CELL_CLASS: Record<LoadCategory, string> = {
   background:
     "bg-[var(--load-cat-background-bg)] text-[var(--load-cat-background-ink)]",
@@ -48,12 +48,12 @@ const CELL_CLASS: Record<LoadCategory, string> = {
   full: "bg-[var(--load-cat-full-bg)] text-[var(--load-cat-full-ink)] font-medium",
 };
 
-/** Класс ячейки проекта: своя ступень интенсивности на каждую категорию. */
+/** Project cell class: its own intensity step per category. */
 export function categoryCellClass(c: LoadCategory): string {
   return CELL_CLASS[c];
 }
 
-/** Сводная ячейка «сумма весов vs ёмкость» — общая для TimelineGrid и SharePage. */
+/** Summary cell “sum of weights vs. capacity” — shared by TimelineGrid and SharePage. */
 export function summaryLoadClass(
   allocated: number,
   capacity: number,

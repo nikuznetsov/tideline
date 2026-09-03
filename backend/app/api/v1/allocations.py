@@ -40,7 +40,7 @@ def _alloc_dict(a: Allocation) -> dict:
 
 async def _validate_day(db: AsyncSession, ws_id: uuid.UUID, member_id: uuid.UUID, day) -> None:
     if is_weekend(day):
-        raise HTTPException(422, "Нельзя поставить аллокацию на выходной день")
+        raise HTTPException(422, "Cannot allocate on a weekend day")
     nwd = (
         await db.execute(
             select(NonWorkingDay.id).where(
@@ -49,7 +49,7 @@ async def _validate_day(db: AsyncSession, ws_id: uuid.UUID, member_id: uuid.UUID
         )
     ).scalar_one_or_none()
     if nwd:
-        raise HTTPException(422, "Нельзя поставить аллокацию на нерабочий день")
+        raise HTTPException(422, "Cannot allocate on a non-working day")
     absent = (
         await db.execute(
             select(Absence.id).where(
@@ -63,7 +63,7 @@ async def _validate_day(db: AsyncSession, ws_id: uuid.UUID, member_id: uuid.UUID
     if absent:
         raise HTTPException(
             422,
-            "День попадает в отсутствие сотрудника — сначала снимите отпуск/отсутствие",
+            "This day falls within the member's absence — remove the absence first",
         )
 
 
@@ -78,7 +78,7 @@ async def _validate_member(db: AsyncSession, ws_id: uuid.UUID, member_id: uuid.U
         )
     ).scalar_one_or_none()
     if not member:
-        raise HTTPException(404, "Сотрудник не найден")
+        raise HTTPException(404, "Team member not found")
 
 
 async def _validate_project_active(db: AsyncSession, ws_id: uuid.UUID, project_id: uuid.UUID):
@@ -92,9 +92,9 @@ async def _validate_project_active(db: AsyncSession, ws_id: uuid.UUID, project_i
         )
     ).scalar_one_or_none()
     if not project:
-        raise HTTPException(404, "Проект не найден")
+        raise HTTPException(404, "Project not found")
     if project.lifecycle == "finished":
-        raise HTTPException(422, "Проект завершён — новые аллокации на него нельзя")
+        raise HTTPException(422, "Project is finished — new allocations are not allowed")
 
 
 @router.post("", response_model=AllocationOut)
@@ -148,7 +148,7 @@ async def bulk_allocations(
     ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
-    """Drag-fill / выделение диапазона: массовое проставление или очистка."""
+    """Drag-fill / range selection: bulk set or clear."""
     affected = 0
     for item in body.items:
         await _validate_member(db, ws.id, item.member_id)
@@ -248,7 +248,7 @@ async def patch_allocation(
         )
     ).scalar_one_or_none()
     if not alloc:
-        raise HTTPException(404, "Аллокация не найдена")
+        raise HTTPException(404, "Allocation not found")
     before = _alloc_dict(alloc) | {"note": alloc.note}
     if body.category is not None:
         alloc.category = body.category
@@ -277,7 +277,7 @@ async def delete_allocation(
         )
     ).scalar_one_or_none()
     if not alloc:
-        raise HTTPException(404, "Аллокация не найдена")
+        raise HTTPException(404, "Allocation not found")
     record_audit(db, ws.id, user.id, "allocation", alloc.id, "delete", _alloc_dict(alloc), None)
     await db.delete(alloc)
     await db.commit()
@@ -291,7 +291,7 @@ async def copy_week(
     ws: Workspace = Depends(get_workspace_editor),
     user: AppUser = Depends(get_current_user),
 ):
-    """Продублировать неделю: mode=replace стирает целевую, merge — дополняет."""
+    """Duplicate a week: mode=replace wipes the target, merge adds to it."""
     src_end = body.from_week_start + timedelta(days=6)
     dst_end = body.to_week_start + timedelta(days=6)
     shift = (body.to_week_start - body.from_week_start).days

@@ -1,4 +1,4 @@
-"""Закрытие недели: снимок факта, сравнение с планом, фиксация плана N+2, откат."""
+"""Week close: fact snapshot, comparison with plan, freezing the N+2 plan, reopen."""
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -16,7 +16,7 @@ class WeekCloseError(Exception):
 
 
 def _num(v) -> str:
-    """Каноничная строка числа: без хвостовых нулей ('0.50' -> '0.5')."""
+    """Canonical numeric string: no trailing zeros ('0.50' -> '0.5')."""
     d = Decimal(str(v)).normalize()
     return format(d, "f")
 
@@ -43,7 +43,7 @@ async def _week_allocations(
 async def build_week_payload(
     db: AsyncSession, workspace_id: uuid.UUID, week_start: date
 ) -> dict:
-    """Полный слепок аллокаций недели: независим от текущего состояния таблиц."""
+    """Full snapshot of the week's allocations: independent of the current table state."""
     allocations = await _week_allocations(db, workspace_id, week_start)
     member_ids = {a.member_id for a in allocations}
     project_ids = {a.project_id for a in allocations}
@@ -73,7 +73,7 @@ async def build_week_payload(
                 "project_code": projects[a.project_id].code if a.project_id in projects else None,
                 "day": a.day.isoformat(),
                 "category": a.category,
-                # derived-вес: diff/accuracy читают "load" — старые снимки совместимы
+                # derived weight: diff/accuracy read "load" — old snapshots stay compatible
                 "load": _num(weight(a.category)),
             }
             for a in allocations
@@ -84,7 +84,7 @@ async def build_week_payload(
 
 
 def diff_payloads(plan: dict | None, fact: dict) -> dict:
-    """Расхождение план/факт по ключу (member, project, day)."""
+    """Plan/fact difference keyed by (member, project, day)."""
 
     def to_map(payload: dict | None) -> dict[tuple, Decimal]:
         result: dict[tuple, Decimal] = {}
@@ -136,9 +136,9 @@ async def close_week(
     week_start: date,
     actor_user_id: uuid.UUID | None = None,
 ) -> WeekSnapshot:
-    """Транзакционно: снимок факта + diff с планом + фиксация плана следующей недели."""
+    """Transactional: fact snapshot + diff against plan + freezing next week's plan."""
     if await get_snapshot(db, workspace_id, week_start, "fact"):
-        raise WeekCloseError("Неделя уже закрыта")
+        raise WeekCloseError("Week is already closed")
 
     fact_payload = await build_week_payload(db, workspace_id, week_start)
     plan_snapshot = await get_snapshot(db, workspace_id, week_start, "plan")
@@ -154,7 +154,7 @@ async def close_week(
     )
     db.add(fact)
 
-    # фиксация плана на следующую неделю (N+1 от закрываемой), если ещё не зафиксирован
+    # freeze the plan for the next week (N+1 from the one being closed) unless already frozen
     next_week = week_start + timedelta(days=7)
     if not await get_snapshot(db, workspace_id, next_week, "plan"):
         plan_payload = await build_week_payload(db, workspace_id, next_week)
@@ -188,15 +188,15 @@ async def undo_close_week(
     week_start: date,
     actor_user_id: uuid.UUID | None = None,
 ) -> None:
-    """Откат закрытия в течение 24 часов: удаляет снимок факта."""
+    """Reopen within 24 hours of closing: deletes the fact snapshot."""
     fact = await get_snapshot(db, workspace_id, week_start, "fact")
     if not fact:
-        raise WeekCloseError("Неделя не закрыта")
+        raise WeekCloseError("Week is not closed")
     created = fact.created_at
     if created.tzinfo is None:
         created = created.replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) - created > timedelta(hours=24):
-        raise WeekCloseError("Откат возможен только в течение 24 часов после закрытия")
+        raise WeekCloseError("Reopening is only possible within 24 hours of closing")
     await db.delete(fact)
     db.add(
         AuditLog(

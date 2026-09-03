@@ -42,7 +42,7 @@ def read_session_token(token: str) -> str | None:
 
 
 def generate_share_token() -> str:
-    """Токен ссылки: 32 байта энтропии, urlsafe."""
+    """Link token: 32 bytes of entropy, urlsafe."""
     return secrets.token_urlsafe(32)
 
 

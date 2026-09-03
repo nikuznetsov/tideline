@@ -41,7 +41,7 @@ async def create_non_working_day(
     user: AppUser = Depends(get_current_user),
 ):
     if is_weekend(body.day):
-        raise HTTPException(422, "Это и так выходной — суббота или воскресенье")
+        raise HTTPException(422, "This is already a weekend day (Saturday or Sunday)")
     dup = (
         await db.execute(
             select(NonWorkingDay.id).where(
@@ -50,7 +50,7 @@ async def create_non_working_day(
         )
     ).scalar_one_or_none()
     if dup:
-        raise HTTPException(422, "Этот день уже отмечен нерабочим")
+        raise HTTPException(422, "This day is already marked as non-working")
     nwd = NonWorkingDay(workspace_id=ws.id, day=body.day, title=body.title)
     db.add(nwd)
     await db.flush()
@@ -77,7 +77,7 @@ async def delete_non_working_day(
         )
     ).scalar_one_or_none()
     if not nwd:
-        raise HTTPException(404, "День не найден")
+        raise HTTPException(404, "Day not found")
     record_audit(
         db, ws.id, user.id, "non_working_day", nwd.id, "delete",
         {"day": nwd.day.isoformat(), "title": nwd.title}, None,

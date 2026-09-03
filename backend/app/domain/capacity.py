@@ -1,6 +1,6 @@
-"""Расчёт ёмкости и поиск свободного ресурса.
+"""Capacity calculation and free-resource search.
 
-Все функции принимают workspace_id — обязательное условие мультиарендной схемы.
+Every function takes workspace_id — a hard requirement of the multi-tenant schema.
 """
 
 import uuid
@@ -50,7 +50,7 @@ async def load_calendar_context(
     date_from: date,
     date_to: date,
 ):
-    """Одним набором запросов достаёт всё для расчёта ёмкости за диапазон."""
+    """Fetches everything needed to compute capacity for a range in one set of queries."""
     members = (
         (
             await db.execute(
@@ -203,7 +203,7 @@ async def search_capacity(
                 continue
             free = dc.free
             if min_daily is not None and free < min_daily:
-                free = Decimal(0)  # дробить сильнее бессмысленно
+                free = Decimal(0)  # no point splitting any finer
             if free > 0:
                 free_by_day[dc.day] = free
         free_total = sum(free_by_day.values(), Decimal(0))
@@ -216,15 +216,15 @@ async def search_capacity(
             warnings.append(
                 {
                     "kind": "absence",
-                    "message": f"Отсутствие внутри диапазона: {len(vac)} дн.",
+                    "message": f"Absence within the range: {len(vac)} days",
                 }
             )
-        # фрагментация: свободное время рассыпано мелкими кусками, цельного дня нет
+        # fragmentation: free time is scattered in small pieces, no whole day
         if free_by_day and max(free_by_day.values()) < Decimal("0.5"):
             warnings.append(
                 {
                     "kind": "fragmentation",
-                    "message": "Свободное время фрагментировано: нет блока ≥ 0.5 дня",
+                    "message": "Free time is fragmented: no block of ≥ 0.5 day",
                 }
             )
 

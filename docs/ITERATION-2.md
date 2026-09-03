@@ -1,94 +1,98 @@
-# Итерация 2 — пространства и роли (проектирование)
+# Iteration 2 — workspaces and roles (design)
 
-Статус: **реализовано в изменённом виде** (2026-07-20). По решению владельца
-продукта OAuth отложен: вход и регистрация — по email и паролю; лендинг со
-входом; вступление в пространство по инвайт-ссылке с ролью по умолчанию
-(viewer, настраивается владельцем); несколько пространств с переключателем.
-Разделы ниже сохранены как исходное проектирование; расхождения — в коде.
+Status: **implemented in a modified form** (2026-07-20). By decision of the
+product owner, OAuth was postponed: login and registration use email and
+password; there is a landing page with a login form; users join a workspace via
+an invite link with a default role (viewer, configurable by the owner); multiple
+workspaces with a switcher. The sections below are preserved as the original
+design; where they differ from the code, the code wins.
 
-## Цель
+## Goal
 
-Из инструмента одной команды с одним редактором — в инструмент нескольких
-команд: вход через OAuth, несколько рабочих пространств у пользователя, роли
-`owner / editor / viewer`, приглашения. Публичной регистрации нет (это
-итерация 3): в систему попадают только приглашённые.
+Turn a tool for one team with one editor into a tool for several teams: OAuth
+login, several workspaces per user, `owner / editor / viewer` roles,
+invitations. There is no public sign-up (that is iteration 3): only invited
+people get into the system.
 
-## Что уже готово с итерации 1
+## Already in place since iteration 1
 
-- `workspace_id` во всех таблицах, запросах и уникальных ключах;
-- таблица `membership (workspace_id, user_id, role)` с check-ограничением ролей;
-- тест изоляции пространств (`tests/test_workspace_isolation.py`);
-- сессии httpOnly-cookie, аудит, rate limiting.
+- `workspace_id` in every table, query and unique key;
+- the `membership (workspace_id, user_id, role)` table with a check constraint
+  on roles;
+- the workspace isolation test (`tests/test_workspace_isolation.py`);
+- httpOnly-cookie sessions, audit log, rate limiting.
 
-Остаётся добавить проверку прав и убрать привязку к единственному
-`WORKSPACE_SLUG` из env.
+What remains is permission checks and dropping the hard dependency on the single
+`WORKSPACE_SLUG` from the environment.
 
-## 1. Аутентификация
+## 1. Authentication
 
-**OAuth (Google, GitHub)** через authorization code flow, без сторонних
-тяжёлых зависимостей (`httpx` + ручной flow или `authlib`).
+**OAuth (Google, GitHub)** via the authorization code flow, without heavy
+third-party dependencies (`httpx` plus a hand-written flow, or `authlib`).
 
-Новая таблица:
+New table:
 
 ```
 oauth_account
   id uuid pk, user_id fk app_user, provider text check (in ('google','github')),
-  subject text,                 -- стабильный id пользователя у провайдера
+  subject text,                 -- stable user id at the provider
   email text, created_at,
   unique(provider, subject)
 ```
 
-Логика входа: `GET /auth/oauth/{provider}` → редирект → callback →
-находим `oauth_account` или создаём `app_user` + `oauth_account`
-(автосоздание — только если есть приглашение на этот email, иначе 403
-«вход по приглашению»). Парольный вход остаётся как fallback для
-владельца инсталляции (`ADMIN_EMAIL`).
+Login flow: `GET /auth/oauth/{provider}` → redirect → callback → find the
+`oauth_account` or create `app_user` + `oauth_account` (auto-creation only when
+an invitation exists for that email, otherwise 403 "invitation required").
+Password login remains as a fallback for the installation owner
+(`ADMIN_EMAIL`).
 
-Сессия — та же подписанная cookie; в payload добавляется ничего:
-пространство выбирается путём, не сессией.
+The session stays the same signed cookie; nothing is added to its payload — the
+workspace is selected by the URL path, not by the session.
 
-## 2. Пространства в API и UI
+## 2. Workspaces in the API and UI
 
-Схема URL меняется с неявного пространства на явное:
+The URL scheme moves from an implicit workspace to an explicit one:
 
 ```
 /api/v1/w/{workspace_slug}/timeline
 /api/v1/w/{workspace_slug}/allocations
-... (все доменные маршруты)
+... (all domain routes)
 
-GET  /api/v1/workspaces               — мои пространства (по membership)
-POST /api/v1/workspaces               — создать (создатель становится owner)
-PATCH /api/v1/w/{slug}                — переименование, таймзона, настройки
+GET  /api/v1/workspaces               — my workspaces (via membership)
+POST /api/v1/workspaces               — create one (the creator becomes owner)
+PATCH /api/v1/w/{slug}                — rename, timezone, settings
 ```
 
-Зависимость `get_workspace(slug, user)` возвращает пространство **и роль**
-пользователя в нём; отсутствие membership — 404 (не 403: не раскрываем
-существование чужих пространств). Фронтенд: слаг в URL
-(`/w/{slug}/...`), переключатель пространств в шапке, последнее выбранное —
-в localStorage.
+The `get_workspace(slug, user)` dependency returns the workspace **and the
+user's role** in it; a missing membership yields 404 (not 403: we do not reveal
+that other people's workspaces exist). Frontend: the slug in the URL
+(`/w/{slug}/...`), a workspace switcher in the header, the last selected
+workspace kept in localStorage.
 
-Совместимость: старые пути `/api/v1/timeline` живут один релиз как редирект
-на пространство по умолчанию, затем удаляются.
+Compatibility: the old paths such as `/api/v1/timeline` live for one release as
+a redirect to the default workspace, then are removed.
 
-## 3. Роли
+## 3. Roles
 
-| Действие | owner | editor | viewer |
+| Action | owner | editor | viewer |
 |---|---|---|---|
-| Просмотр всего | ✔ | ✔ | ✔ |
-| Аллокации, отпуска, календарь, проекты, закрытие недели | ✔ | ✔ | — |
-| Команда (сотрудники) | ✔ | ✔ | — |
-| Участники и приглашения | ✔ | — | — |
-| Share-ссылки, настройки пространства, бэкапы | ✔ | — | — |
-| Удаление пространства | ✔ | — | — |
+| View everything | ✔ | ✔ | ✔ |
+| Allocations, absences, calendar, projects, closing weeks | ✔ | ✔ | — |
+| Team (team members) | ✔ | ✔ | — |
+| Participants and invitations | ✔ | — | — |
+| Share links, workspace settings, backups | ✔ | — | — |
+| Deleting the workspace | ✔ | — | — |
 
-Реализация: `require_role("editor")` — FastAPI-зависимость поверх
-`get_workspace`; на мутирующих роутерах. Инварианты: нельзя выдать роль выше
-своей; последний `owner` не понижается и не удаляется; смена ролей — в аудит.
+Implementation: `require_role("editor")` — a FastAPI dependency layered on
+`get_workspace`, applied to mutating routers. Invariants: you cannot grant a
+role higher than your own; the last `owner` cannot be demoted or removed; role
+changes go to the audit log.
 
-Viewer в UI: те же экраны, но сетка в `readOnly` (компонент уже это умеет
-благодаря публичному режиму), кнопки мутаций скрыты.
+Viewer in the UI: the same screens, but the grid is in `readOnly` (the
+component already supports this thanks to the public mode) and mutation
+buttons are hidden.
 
-## 4. Приглашения
+## 4. Invitations
 
 ```
 invitation
@@ -98,48 +102,49 @@ invitation
   created_at
 ```
 
-Два режима (оба нужны по ТЗ):
-- **по email**: приглашение привязано к адресу; принять может только вошедший
-  с этим email;
-- **по ссылке**: `email = null`, принять может любой вошедший — для быстрого
-  онбординга команды.
+Two modes (both required by the spec):
+- **by email**: the invitation is bound to an address; only a logged-in user
+  with that email can accept it;
+- **by link**: `email = null`, any logged-in user can accept — for quick team
+  onboarding.
 
-Токен — как у share-ссылок: 32 байта, в БД только хеш. Отправка почты —
-опционально (`SMTP_*` в env); без SMTP владелец копирует ссылку вручную —
-это основной сценарий первой поставки. Страница «Участники»: список с ролями,
-смена роли, отзыв доступа, активные приглашения.
+The token works like share-link tokens: 32 bytes, only the hash in the
+database. Sending email is optional (`SMTP_*` in the environment); without
+SMTP the owner copies the link by hand — that is the primary scenario for the
+first release. The "Participants" page: the list with roles, role changes,
+access revocation, active invitations.
 
-## 5. Миграции и данные
+## 5. Migrations and data
 
-1. `oauth_account`, `invitation` — новые таблицы (одна миграция).
-2. Существующее пространство `xops` и админ уже связаны через `membership
-   (owner)` — данные переносить не нужно.
-3. `WORKSPACE_SLUG` из env перестаёт быть источником правды и остаётся только
-   как слаг пространства по умолчанию для сида.
+1. `oauth_account` and `invitation` are new tables (one migration).
+2. The existing default workspace and the admin are already linked through
+   `membership (owner)` — no data migration needed.
+3. `WORKSPACE_SLUG` from the environment stops being the source of truth and
+   remains only as the default workspace slug for the seed.
 
-## 6. Тесты
+## 6. Tests
 
-- права: viewer не может мутировать (каждый мутирующий эндпоинт), editor не
-  видит участников, 404 на чужое пространство (расширение существующего теста
-  изоляции);
-- приглашения: приём по email/ссылке, истечение, отзыв, «последний owner»;
-- OAuth: мок провайдера (подменённый token/userinfo endpoint), автосоздание
-  только по приглашению.
+- permissions: a viewer cannot mutate (every mutating endpoint), an editor
+  cannot see participants, 404 for someone else's workspace (extending the
+  existing isolation test);
+- invitations: acceptance by email/link, expiry, revocation, "last owner";
+- OAuth: a mocked provider (swapped token/userinfo endpoint), auto-creation
+  only via invitation.
 
-## 7. Порядок работ (каждый этап — работающее приложение)
+## 7. Work order (each stage ships a working application)
 
-| # | Этап | Объём |
+| # | Stage | Size |
 |---|---|---|
-| 1 | Явное пространство в URL API+UI, `get_workspace(slug)+роль`, редиректы со старых путей | средний |
-| 2 | `require_role`, viewer-режим UI, тесты прав | средний |
-| 3 | Приглашения + страница «Участники» (без SMTP) | средний |
-| 4 | OAuth Google, затем GitHub; вход только по приглашению | средний |
-| 5 | Несколько пространств: создание, переключатель, настройки | небольшой |
+| 1 | Explicit workspace in the API and UI URLs, `get_workspace(slug)+role`, redirects from old paths | medium |
+| 2 | `require_role`, viewer mode in the UI, permission tests | medium |
+| 3 | Invitations + the "Participants" page (no SMTP) | medium |
+| 4 | OAuth with Google, then GitHub; invitation-only login | medium |
+| 5 | Multiple workspaces: creation, switcher, settings | small |
 
-## Открытые вопросы (нужно решение)
+## Open questions (decision needed)
 
-1. Какой OAuth-провайдер первым — Google или GitHub? (влияет только на порядок)
-2. Нужна ли отправка приглашений почтой в первой поставке итерации 2, или
-   достаточно копируемых ссылок?
-3. Сохранять ли парольный вход после появления OAuth или оставить только для
-   аварийного доступа владельца?
+1. Which OAuth provider first — Google or GitHub? (affects order only)
+2. Does the first iteration 2 release need email delivery of invitations, or
+   are copyable links enough?
+3. Keep password login after OAuth arrives, or leave it only for the owner's
+   emergency access?

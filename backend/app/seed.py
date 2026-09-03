@@ -1,6 +1,6 @@
-"""Демо-данные: make seed. 7 сотрудников, 6 активных + 2 завершённых проекта,
-аллокации на 6 недель назад и 2 вперёд, отпуска, снимки закрытых недель,
-один перегруженный сотрудник и один sole owner."""
+"""Demo data: make seed. 7 team members, 6 active + 2 finished projects,
+allocations for 6 weeks back and 2 ahead, vacations, closed-week snapshots,
+one overloaded member and one sole expert."""
 
 import asyncio
 import random
@@ -16,25 +16,25 @@ from app.domain.calendar import is_weekend, week_start_of
 from app.domain.week_close import build_week_payload, diff_payloads
 
 MEMBERS = [
-    ("Алексей Громов", "ML-инженер", ["cuda", "ml", "rag"], "alexey@demo.local"),
-    ("Мария Ветрова", "Backend-инженер", ["python", "infra"], "maria@demo.local"),
-    ("Иван Соколов", "MLOps", ["infra", "k8s", "cuda"], "ivan@demo.local"),
-    ("Дарья Лунина", "Data Engineer", ["etl", "python"], "darya@demo.local"),
-    ("Пётр Волков", "Backend-инженер", ["python", "go"], "petr@demo.local"),
-    ("Анна Морозова", "ML-инженер", ["ml", "rag", "nlp"], "anna@demo.local"),
-    ("Сергей Каменев", "Fullstack", ["ts", "python"], "sergey@demo.local"),
+    ("Alex Grant", "ML engineer", ["cuda", "ml", "rag"], "alex@demo.local"),
+    ("Maria Winters", "Backend engineer", ["python", "infra"], "maria@demo.local"),
+    ("Ian Falconer", "MLOps", ["infra", "k8s", "cuda"], "ian@demo.local"),
+    ("Daria Moon", "Data Engineer", ["etl", "python"], "daria@demo.local"),
+    ("Peter Wolfe", "Backend engineer", ["python", "go"], "peter@demo.local"),
+    ("Anna Frost", "ML engineer", ["ml", "rag", "nlp"], "anna@demo.local"),
+    ("Sam Stone", "Fullstack", ["ts", "python"], "sam@demo.local"),
 ]
 DEMO_PASSWORD = "demo-password-123"
 
 PROJECTS = [
-    ("RAGX", "RAG-платформа для поддержки", "active", "green"),
-    ("VOICE", "Голосовой ассистент B2B", "active", "amber"),
-    ("INFRA", "Миграция на новый кластер", "active", "red"),
-    ("SCOUT", "Мониторинг моделей", "active", "green"),
-    ("DOCS", "Извлечение данных из документов", "active", "green"),
-    ("EDGE", "Инференс на edge-устройствах", "active", "amber"),
-    ("LEGA", "Легаси-скоринг (закрыт)", "finished", "green"),
-    ("HACK", "Внутренний хакатон (закрыт)", "finished", "green"),
+    ("RAGX", "RAG platform for customer support", "active", "green"),
+    ("VOICE", "B2B voice assistant", "active", "amber"),
+    ("INFRA", "Migration to the new cluster", "active", "red"),
+    ("SCOUT", "Model monitoring", "active", "green"),
+    ("DOCS", "Document data extraction", "active", "green"),
+    ("EDGE", "Inference on edge devices", "active", "amber"),
+    ("LEGA", "Legacy scoring (closed)", "finished", "green"),
+    ("HACK", "Internal hackathon (closed)", "finished", "green"),
 ]
 
 
@@ -43,7 +43,7 @@ async def seed() -> None:
     async with factory() as db:
         ws = await ensure_bootstrap(db)
 
-        # чистим пространство (идемпотентный сид)
+        # wipe the workspace (idempotent seed)
         for table in (
             m.AuditLog, m.WeekSnapshot, m.Allocation, m.Absence,
             m.NonWorkingDay, m.Milestone, m.ProjectUpdate,
@@ -56,7 +56,7 @@ async def seed() -> None:
         rng = random.Random(42)
         members = []
         for i, (name, role, tags, email) in enumerate(MEMBERS):
-            # команда = участники: каждому сотруднику — аккаунт и доступ viewer
+            # team = participants: every member gets an account and viewer access
             account = (
                 await db.execute(select(m.AppUser).where(m.AppUser.email == email))
             ).scalar_one_or_none()
@@ -92,12 +92,12 @@ async def seed() -> None:
                 name=name,
                 lifecycle=lifecycle,
                 health=health,
-                weekly_update="Идём по плану, блокеров нет." if lifecycle == "active" else None,
-                goal=f"Цель проекта {code}: довести до продуктивного использования.",
-                scope_md="- Итерация 1: MVP\n- Итерация 2: пилот",
+                weekly_update="On track, no blockers." if lifecycle == "active" else None,
+                goal=f"Goal of {code}: bring it to production use.",
+                scope_md="- Iteration 1: MVP\n- Iteration 2: pilot",
                 links_md=(
-                    "- [Страница проекта в Confluence](https://confluence.example.com) — детали, риски, архитектура\n"
-                    "- [Репозиторий](https://example.com) — доступ у тимлида"
+                    "- [Project page in the wiki](https://wiki.example.com) — details, risks, architecture\n"
+                    "- [Repository](https://example.com) — ask the team lead for access"
                 ),
             )
             db.add(p)
@@ -115,7 +115,7 @@ async def seed() -> None:
         start = current_week - timedelta(weeks=6)
         end = current_week + timedelta(weeks=2) - timedelta(days=1)
 
-        # отпуска: у Дарьи на этой неделе, у Петра — через неделю
+        # vacations: Daria this week, Peter next week
         db.add(m.Absence(
             workspace_id=ws.id, member_id=members[3].id,
             date_from=current_week + timedelta(days=2),
@@ -132,7 +132,7 @@ async def seed() -> None:
             members[4].id: {current_week + timedelta(days=d) for d in (7, 8, 9)},
         }
 
-        # основной проект каждого + второстепенный
+        # everyone's primary project + a secondary one
         assignments = []
         for i, member in enumerate(members):
             primary = active[i % len(active)]
@@ -147,7 +147,7 @@ async def seed() -> None:
                         continue
                     r = rng.random()
                     if r < 0.15:
-                        continue  # свободный день
+                        continue  # free day
                     if r < 0.75:
                         db.add(m.Allocation(
                             workspace_id=ws.id, member_id=member.id,
@@ -165,7 +165,7 @@ async def seed() -> None:
                             project_id=secondary.id, day=d, category="half",
                             created_by=user.id,
                         ))
-                # перегруженный Иван: «наполовину» сверху на INFRA в текущем окне
+                # overloaded Ian: an extra "half day" on INFRA in the current window
                 if d >= current_week:
                     db.add(m.Allocation(
                         workspace_id=ws.id, member_id=members[2].id,
@@ -177,7 +177,7 @@ async def seed() -> None:
             d += timedelta(days=1)
         await db.commit()
 
-        # снимки прошлых недель: план (слегка искажённый) + факт
+        # past-week snapshots: plan (slightly distorted) + fact
         for w in range(6, 0, -1):
             ws_date = current_week - timedelta(weeks=w)
             fact_payload = await build_week_payload(db, ws.id, ws_date)
@@ -187,7 +187,7 @@ async def seed() -> None:
                     a for a in fact_payload["allocations"] if rng.random() > 0.18
                 ],
             }
-            # план иногда обещал больше
+            # the plan sometimes promised more
             for a in plan_payload["allocations"]:
                 if rng.random() < 0.12:
                     a = dict(a)
@@ -199,21 +199,21 @@ async def seed() -> None:
                 workspace_id=ws.id, week_start=ws_date, kind="fact", payload=fact_payload
             ))
 
-        # план на текущую неделю — чтобы закрытие показало diff
+        # plan for the current week — so that closing shows a diff
         cur_plan = await build_week_payload(db, ws.id, current_week)
         db.add(m.WeekSnapshot(
             workspace_id=ws.id, week_start=current_week, kind="plan", payload=cur_plan
         ))
 
-        # апдейты проектов
+        # project updates
         for p in active[:3]:
             db.add(m.ProjectUpdate(
                 workspace_id=ws.id, project_id=p.id,
-                body="Неделя прошла по плану, готовим следующую веху.",
+                body="The week went to plan; preparing the next milestone.",
                 created_by=user.id,
             ))
         await db.commit()
-    print("Демо-данные загружены.")
+    print("Demo data loaded.")
 
 
 if __name__ == "__main__":

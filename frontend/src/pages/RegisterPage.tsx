@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
+import { Wordmark } from "../components/Wordmark";
 
 export function RegisterPage() {
   const [params] = useSearchParams();
@@ -28,7 +29,7 @@ export function RegisterPage() {
       await queryClient.invalidateQueries({ queryKey: ["me"] });
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Не удалось создать аккаунт",
+        err instanceof ApiError ? err.message : "Could not create account",
       );
     } finally {
       setBusy(false);
@@ -39,22 +40,21 @@ export function RegisterPage() {
     <div className="flex min-h-full items-center justify-center overflow-auto bg-page py-8">
       <div className="w-[380px]">
         <div className="mb-4 flex items-baseline gap-2">
-          <span className="font-wide text-base font-bold uppercase">xOps</span>
-          <span className="font-wide text-base font-medium text-mts">Tideline</span>
+          <Wordmark size="base" />
         </div>
         <form
           onSubmit={submit}
           className="rounded-lg border border-line bg-surface p-6"
         >
-          <h1 className="font-wide text-sm font-bold">Новый аккаунт</h1>
+          <h1 className="font-display text-sm font-bold">New account</h1>
           <p className="mt-1 text-xs text-muted">
             {next?.startsWith("/join/")
-              ? "После регистрации вы сразу примете приглашение."
-              : "Аккаунт без доступов: вступайте по приглашению или создайте своё пространство."}
+              ? "After signing up you will accept the invitation right away."
+              : "The account starts with no access: join by invitation or create your own workspace."}
           </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-xs text-muted">Имя</span>
+              <span className="mb-1 block text-xs text-muted">First name</span>
               <input
                 required
                 autoFocus
@@ -64,7 +64,7 @@ export function RegisterPage() {
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-muted">Фамилия</span>
+              <span className="mb-1 block text-xs text-muted">Last name</span>
               <input
                 required
                 value={lastName}
@@ -85,7 +85,7 @@ export function RegisterPage() {
           </label>
           <label className="mt-3 block">
             <span className="mb-1 block text-xs text-muted">
-              Пароль (не короче 8 символов)
+              Password (at least 8 characters)
             </span>
             <input
               type="password"
@@ -96,21 +96,21 @@ export function RegisterPage() {
               className="w-full rounded border border-line bg-page px-3 py-2 text-sm"
             />
           </label>
-          {error && <p className="mt-3 text-xs text-mts">{error}</p>}
+          {error && <p className="mt-3 text-xs text-accent">{error}</p>}
           <button
             type="submit"
             disabled={busy}
-            className="mt-4 w-full rounded bg-mts px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="mt-4 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? "Создаём…" : "Создать аккаунт"}
+            {busy ? "Creating…" : "Create account"}
           </button>
           <p className="mt-4 text-xs text-muted">
-            Уже есть аккаунт?{" "}
+            Already have an account?{" "}
             <Link
               to={next ? `/login?next=${encodeURIComponent(next)}` : "/"}
-              className="text-mts underline"
+              className="text-accent underline"
             >
-              Войти
+              Log in
             </Link>
           </p>
         </form>

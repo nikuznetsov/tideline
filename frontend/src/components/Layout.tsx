@@ -6,6 +6,7 @@ import type { User } from "../api/types";
 import { useWorkspace } from "../workspace";
 import { HotkeysHelp } from "./HotkeysHelp";
 import { ProfileDialog } from "./ProfileDialog";
+import { Wordmark } from "./Wordmark";
 
 export function Layout({ user, children }: { user: User; children: ReactNode }) {
   const [helpOpen, setHelpOpen] = useState(false);
@@ -15,10 +16,10 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
   const { current, workspaces, wsPath } = useWorkspace();
 
   const nav = [
-    { to: wsPath("/"), label: "Таймлайн", end: true },
-    { to: wsPath("/projects"), label: "Проекты", end: false },
-    { to: wsPath("/team"), label: "Команда", end: false },
-    { to: wsPath("/accuracy"), label: "Точность", end: false },
+    { to: wsPath("/"), label: "Timeline", end: true },
+    { to: wsPath("/projects"), label: "Projects", end: false },
+    { to: wsPath("/team"), label: "Team", end: false },
+    { to: wsPath("/accuracy"), label: "Accuracy", end: false },
   ];
 
   useEffect(() => {
@@ -47,13 +48,10 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-4 border-b border-line bg-surface px-4 py-2">
         <Link to="/" className="flex items-baseline gap-2">
-          <span className="font-wide text-sm font-bold uppercase tracking-wide">
-            xOps
-          </span>
-          <span className="font-wide text-sm font-medium text-mts">Tideline</span>
+          <Wordmark size="sm" />
         </Link>
 
-        {/* переключатель пространств */}
+        {/* workspace switcher */}
         <select
           value={current.slug}
           onChange={(e) => {
@@ -61,14 +59,14 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
             else navigate(`/w/${e.target.value}/`);
           }}
           className="max-w-44 truncate rounded border border-line bg-page px-2 py-1 text-xs"
-          title="Пространство"
+          title="Workspace"
         >
           {workspaces.map((w) => (
             <option key={w.id} value={w.slug}>
               {w.name}
             </option>
           ))}
-          <option value="__all__">Все пространства…</option>
+          <option value="__all__">All workspaces…</option>
         </select>
 
         <nav className="flex gap-1">
@@ -93,14 +91,14 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
           <button
             onClick={() => setHelpOpen(true)}
             className="rounded border border-line px-2 py-1 text-xs text-muted hover:text-ink"
-            title="Горячие клавиши (?)"
+            title="Keyboard shortcuts (?)"
           >
             ?
           </button>
           <button
             onClick={() => setProfileOpen(true)}
             className="max-w-40 truncate text-xs text-muted hover:text-ink"
-            title="Мой профиль"
+            title="My profile"
           >
             {user.name}
           </button>
@@ -108,7 +106,7 @@ export function Layout({ user, children }: { user: User; children: ReactNode }) 
             onClick={logout}
             className="text-xs text-muted underline hover:text-ink"
           >
-            Выйти
+            Log out
           </button>
         </div>
       </header>

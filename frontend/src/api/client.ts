@@ -2,7 +2,7 @@ const BASE = "/api/v1";
 
 export class ApiError extends Error {
   status: number;
-  /** структурированный detail от сервера (например, код конфликта) */
+  /** structured `detail` from the server (e.g. a conflict code) */
   detail: unknown;
   constructor(status: number, message: string, detail?: unknown) {
     super(message);
@@ -48,7 +48,7 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
-// ---------- пространство ----------
+// ---------- workspace ----------
 
 let currentSlug = "";
 
@@ -60,12 +60,12 @@ export function getWorkspaceSlug(): string {
   return currentSlug;
 }
 
-/** Абсолютный URL внутри текущего пространства — для <a href> (экспорт). */
+/** Absolute URL inside the current workspace — for <a href> (export). */
 export function workspaceUrl(path: string): string {
   return `${BASE}/w/${currentSlug}${path}`;
 }
 
-/** Клиент доменного API текущего пространства: /api/v1/w/{slug}/... */
+/** Domain API client for the current workspace: /api/v1/w/{slug}/... */
 export const wapi = {
   get: <T>(path: string) => api.get<T>(`/w/${currentSlug}${path}`),
   post: <T>(path: string, body?: unknown) => api.post<T>(`/w/${currentSlug}${path}`, body),

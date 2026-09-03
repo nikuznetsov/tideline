@@ -1,4 +1,4 @@
-"""rag_status -> health; убрать фазу, ответственного и веху из проекта
+"""rag_status -> health; drop phase, owner and milestone from project
 
 Revision ID: b7e2f4d90a11
 Revises: 9c41d0a7c1e2

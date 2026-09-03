@@ -73,14 +73,14 @@ export function TimelinePage() {
       {reminder && (
         <div className="flex items-center gap-3 border-b border-line bg-[var(--load-partial-bg)] px-4 py-1.5 text-xs text-[var(--load-partial-ink)]">
           <span>
-            Неделя от {rangeLabel(reminder, addDays(reminder, 6))} ещё не закрыта.
+            Week {rangeLabel(reminder, addDays(reminder, 6))} is not closed yet.
           </span>
           {canEdit && (
             <button
               onClick={() => closeWeek.mutate(reminder)}
               className="font-medium underline"
             >
-              Закрыть сейчас
+              Close now
             </button>
           )}
         </div>
@@ -90,7 +90,7 @@ export function TimelinePage() {
           <button
             onClick={() => setWindow(addDays(from, -7))}
             className="rounded border border-line px-2 py-1 text-sm hover:bg-page"
-            title="Неделя назад"
+            title="Previous week"
           >
             ←
           </button>
@@ -98,17 +98,17 @@ export function TimelinePage() {
             onClick={() => setWindow(currentMonday())}
             className="rounded border border-line px-2 py-1 text-sm hover:bg-page"
           >
-            Сегодня
+            Today
           </button>
           <button
             onClick={() => setWindow(addDays(from, 7))}
             className="rounded border border-line px-2 py-1 text-sm hover:bg-page"
-            title="Неделя вперёд"
+            title="Next week"
           >
             →
           </button>
         </div>
-        <span className="font-wide text-sm font-medium">{rangeLabel(from, to)}</span>
+        <span className="font-display text-sm font-medium">{rangeLabel(from, to)}</span>
         <div className="flex overflow-hidden rounded border border-line">
           {HORIZONS.map((h) => (
             <button
@@ -118,16 +118,16 @@ export function TimelinePage() {
                 h === horizon ? "bg-ink text-surface" : "hover:bg-page"
               }`}
             >
-              {h} нед
+              {h} wk
             </button>
           ))}
         </div>
 
         <button
           onClick={() => setCapacityOpen((v) => !v)}
-          className="rounded bg-mts px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+          className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:opacity-90"
         >
-          Хватит ли людей?
+          Enough people?
         </button>
 
         {canEdit && closableWeek && (
@@ -135,18 +135,18 @@ export function TimelinePage() {
             onClick={() => closeWeek.mutate(closableWeek.week_start)}
             disabled={closeWeek.isPending}
             className="rounded border border-line px-3 py-1.5 text-sm hover:bg-page disabled:opacity-50"
-            title="Снимок недели в историю и сдвиг окна"
+            title="Save the week snapshot to history and shift the window"
           >
-            Закрыть неделю {rangeLabel(closableWeek.week_start, addDays(closableWeek.week_start, 6))}
+            Close week {rangeLabel(closableWeek.week_start, addDays(closableWeek.week_start, 6))}
           </button>
         )}
         {canEdit && undoableWeek && (
           <button
             onClick={() => undoClose.mutate(undoableWeek.week_start)}
             className="rounded border border-line px-3 py-1.5 text-sm text-muted hover:bg-page"
-            title="Доступно 24 часа после закрытия"
+            title="Available for 24 hours after closing"
           >
-            Откатить закрытие
+            Reopen week
           </button>
         )}
         {canEdit && (
@@ -155,18 +155,18 @@ export function TimelinePage() {
             copyWeek.mutate({ from_week_start: from, to_week_start: addDays(from, 7) })
           }
           className="rounded border border-line px-3 py-1.5 text-sm hover:bg-page"
-          title="Продублировать первую неделю окна во вторую"
+          title="Duplicate the first week of the window into the second"
         >
-          Копировать нед. 1 → 2
+          Copy week 1 → 2
         </button>
         )}
         {canEdit && (
         <button
           onClick={() => setAbsencesOpen((v) => !v)}
           className="rounded border border-line px-3 py-1.5 text-sm hover:bg-page"
-          title="Отпуска, болезни, отгулы — дни выпадают из ёмкости"
+          title="Vacations, sick days, days off — removed from capacity"
         >
-          Отпуска
+          Absences
         </button>
         )}
 
@@ -175,16 +175,16 @@ export function TimelinePage() {
           <span
             className={`text-xs ${
               saveState === "error"
-                ? "font-medium text-mts"
+                ? "font-medium text-accent"
                 : saveState === "saving"
                   ? "text-muted"
                   : "text-muted/70"
             }`}
             title={lastError ?? undefined}
           >
-            {saveState === "saved" && "Сохранено"}
-            {saveState === "saving" && "Сохранение…"}
-            {saveState === "error" && (lastError ?? "Ошибка сети")}
+            {saveState === "saved" && "Saved"}
+            {saveState === "saving" && "Saving…"}
+            {saveState === "error" && (lastError ?? "Network error")}
           </span>
           )}
           <a
@@ -204,7 +204,7 @@ export function TimelinePage() {
             onClick={() => setShareOpen((v) => !v)}
             className="rounded border border-line px-2 py-1 text-xs hover:bg-page"
           >
-            Поделиться
+            Share
           </button>
           )}
         </div>
@@ -212,16 +212,16 @@ export function TimelinePage() {
 
       {closeWeek.isSuccess && (
         <div className="border-b border-line bg-surface px-4 py-1 text-xs text-muted">
-          Неделя закрыта, снимок сохранён.{" "}
+          Week closed, snapshot saved.{" "}
           {(closeWeek.data as { diff?: { total_abs_delta?: string } })?.diff
             ?.total_abs_delta && (
             <>
-              Расхождение с планом:{" "}
+              Deviation from plan:{" "}
               {fmtNum(
                 (closeWeek.data as { diff: { total_abs_delta: string } }).diff
                   .total_abs_delta,
               )}{" "}
-              дн.
+              days
             </>
           )}
         </div>
@@ -229,29 +229,29 @@ export function TimelinePage() {
 
       <div className="relative min-h-0 flex-1 overflow-auto px-4 pb-4 pt-2">
         {query.isLoading && (
-          <div className="py-16 text-center text-muted">Загрузка таймлайна…</div>
+          <div className="py-16 text-center text-muted">Loading timeline…</div>
         )}
         {query.isError && (
           <div className="py-16 text-center text-sm text-muted">
-            Не удалось загрузить данные.{" "}
+            Could not load data.{" "}
             <button onClick={() => query.refetch()} className="underline">
-              Повторить
+              Retry
             </button>
           </div>
         )}
         {data && data.members.length === 0 && (
           <div className="py-16 text-center text-sm text-muted">
-            В пространстве пока нет сотрудников.{" "}
+            The workspace has no team members yet.{" "}
             {canEdit ? (
               <>
-                Добавьте команду на вкладке{" "}
-                <Link to={wsPath("/team")} className="text-mts underline">
-                  Команда
+                Add your team on the{" "}
+                <Link to={wsPath("/team")} className="text-accent underline">
+                  Team
                 </Link>{" "}
-                — и сетка оживёт.
+                tab — and the grid comes alive.
               </>
             ) : (
-              "Попросите редактора добавить команду."
+              "Ask an editor to add the team."
             )}
           </div>
         )}

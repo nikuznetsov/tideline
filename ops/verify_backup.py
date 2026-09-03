@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Еженедельная проверка восстановимости: скачивает последний дамп, поднимает
-временную БД, восстанавливает, прогоняет проверки, удаляет БД.
+"""Weekly restore check: downloads the latest dump, creates a temporary database,
+restores into it, runs the checks, drops the database.
 
-Непроверенный бэкап считается отсутствующим (ТЗ §9.4).
+An unverified backup counts as no backup (spec §9.4).
 
-Требует: VERIFY_DATABASE_URL — Postgres, где можно создавать временные БД
-(обычно тот же инстанс Railway; создаётся tideline_verify_<дата>).
-AGE_SECRET_KEY — приватный age-ключ для расшифровки.
-После успеха кладёт рядом с дампом маркер dump.pgc.age.verified.
+Requires: VERIFY_DATABASE_URL — a Postgres where temporary databases may be created
+(usually the same instance; tideline_verify_<date> is created).
+AGE_SECRET_KEY — the private age key for decryption.
+On success writes the marker dump.pgc.age.verified next to the dump.
 """
 
 import datetime as dt
@@ -30,7 +30,7 @@ def main() -> None:
         reverse=True,
     )
     if not dumps:
-        print("ERROR: в хранилище нет дампов", file=sys.stderr)
+        print("ERROR: no dumps found in storage", file=sys.stderr)
         sys.exit(1)
     latest = dumps[0]
     print(f"verifying {latest}")
@@ -75,13 +75,13 @@ def run_psql(url: str, sql: str) -> None:
 
 
 def checks(url: str) -> None:
-    """Набор проверок: данные на месте и согласованы."""
+    """Checks: the data is present and consistent."""
     import psycopg
 
     with psycopg.connect(url) as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM member WHERE deleted_at IS NULL")
         members = cur.fetchone()[0]
-        assert members > 0, "в дампе нет сотрудников"
+        assert members > 0, "the dump contains no team members"
 
         cur.execute(
             "SELECT count(*) FROM allocation WHERE day >= current_date - interval '30 days'"
@@ -112,12 +112,12 @@ def checks(url: str) -> None:
         if row:
             snap_load = sum(float(a["load"]) for a in row[0]["allocations"])
             assert abs(float(last_week_load) - snap_load) < 0.01, (
-                f"сумма load за прошлую неделю ({last_week_load}) "
-                f"не совпадает со снимком ({snap_load})"
+                f"last week's load sum ({last_week_load}) "
+                f"does not match the snapshot ({snap_load})"
             )
-            print(f"last_week_load={last_week_load} совпадает со снимком")
+            print(f"last_week_load={last_week_load} matches the snapshot")
         else:
-            print("снимка прошлой недели нет — проверка суммы пропущена")
+            print("no snapshot for last week — sum check skipped")
 
 
 if __name__ == "__main__":

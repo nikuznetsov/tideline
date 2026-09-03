@@ -6,14 +6,16 @@ import type { User } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ProfileDialog } from "../components/ProfileDialog";
 import { LAST_WS_KEY, useMyWorkspaces, WorkspaceInfo } from "../workspace";
+import { Wordmark } from "../components/Wordmark";
 
 const ROLE_LABEL: Record<string, string> = {
-  owner: "владелец",
-  editor: "редактор",
-  viewer: "просмотр",
+  owner: "owner",
+  editor: "editor",
+  viewer: "viewer",
 };
 
 function slugify(name: string): string {
+  // transliteration table so Cyrillic workspace names still produce a usable slug
   const map: Record<string, string> = {
     а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
     и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
@@ -49,7 +51,7 @@ export function WorkspacesPage({ user }: { user: User }) {
       navigate(`/w/${ws.slug}/`);
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : "Не удалось создать"),
+      setError(e instanceof ApiError ? e.message : "Could not create"),
   });
 
   const remove = useMutation({
@@ -60,7 +62,7 @@ export function WorkspacesPage({ user }: { user: User }) {
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : "Не удалось удалить"),
+      setError(e instanceof ApiError ? e.message : "Could not delete"),
   });
 
   function submit(e: FormEvent) {
@@ -74,26 +76,25 @@ export function WorkspacesPage({ user }: { user: User }) {
     <div className="min-h-full overflow-auto bg-page">
       <header className="mx-auto flex max-w-2xl items-center justify-between px-6 pt-6">
         <div className="flex items-baseline gap-2">
-          <span className="font-wide text-base font-bold uppercase">xOps</span>
-          <span className="font-wide text-base font-medium text-mts">Tideline</span>
+          <Wordmark size="base" />
         </div>
         <button
           onClick={() => setProfileOpen(true)}
           className="max-w-40 truncate text-xs text-muted hover:text-ink"
-          title="Мой профиль"
+          title="My profile"
         >
           {user.name}
         </button>
       </header>
 
       <main className="mx-auto max-w-2xl px-6 py-8">
-        <h1 className="font-wide text-lg font-bold">Мои пространства</h1>
+        <h1 className="font-display text-lg font-bold">My workspaces</h1>
 
-        {workspaces.isLoading && <p className="py-6 text-muted">Загрузка…</p>}
+        {workspaces.isLoading && <p className="py-6 text-muted">Loading…</p>}
         {workspaces.isSuccess && list.length === 0 && (
           <p className="mt-3 rounded-lg border border-line bg-surface px-4 py-6 text-sm text-muted">
-            У вас пока нет доступов. Вступите в пространство по
-            ссылке-приглашению от владельца — или создайте своё ниже.
+            You have no access yet. Join a workspace via an invite link from
+            its owner — or create your own below.
           </p>
         )}
         {list.length > 0 && (
@@ -102,7 +103,7 @@ export function WorkspacesPage({ user }: { user: User }) {
               <Link
                 key={w.id}
                 to={`/w/${w.slug}/`}
-                className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-3 hover:border-mts/50"
+                className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-3 hover:border-accent/50"
               >
                 <div>
                   <div className="text-sm font-medium">{w.name}</div>
@@ -118,10 +119,10 @@ export function WorkspacesPage({ user }: { user: User }) {
                         e.preventDefault();
                         setDeleting(w);
                       }}
-                      className="text-xs text-mts underline"
-                      title="Удалить пространство целиком"
+                      className="text-xs text-accent underline"
+                      title="Delete the entire workspace"
                     >
-                      Удалить
+                      Delete
                     </button>
                   )}
                 </div>
@@ -134,14 +135,14 @@ export function WorkspacesPage({ user }: { user: User }) {
           onSubmit={submit}
           className="mt-6 rounded-lg border border-line bg-surface p-4"
         >
-          <h2 className="text-sm font-medium">Создать пространство</h2>
+          <h2 className="text-sm font-medium">Create workspace</h2>
           <p className="mt-1 text-xs text-muted">
-            Вы станете его владельцем: команда, проекты и приглашения — под вашим
-            управлением.
+            You will be its owner: the team, projects and invitations are under
+            your control.
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <label className="flex-1 text-xs text-muted">
-              Название
+              Name
               <input
                 required
                 value={name}
@@ -149,12 +150,12 @@ export function WorkspacesPage({ user }: { user: User }) {
                   setName(e.target.value);
                   if (!slugTouched) setSlug(slugify(e.target.value));
                 }}
-                placeholder="Команда ML-платформы"
+                placeholder="ML Platform team"
                 className="mt-1 block w-full rounded border border-line bg-page px-3 py-2 text-sm text-ink"
               />
             </label>
             <label className="text-xs text-muted">
-              Адрес
+              Address
               <div className="mt-1 flex items-center rounded border border-line bg-page px-2">
                 <span className="text-xs text-muted">/w/</span>
                 <input
@@ -165,7 +166,7 @@ export function WorkspacesPage({ user }: { user: User }) {
                     setSlugTouched(true);
                   }}
                   pattern="[a-z0-9][a-z0-9-]{1,31}"
-                  title="Латиница, цифры и дефис"
+                  title="Lowercase letters, digits and hyphens"
                   className="w-36 bg-transparent px-1 py-2 text-sm text-ink outline-none"
                 />
               </div>
@@ -173,26 +174,26 @@ export function WorkspacesPage({ user }: { user: User }) {
             <button
               type="submit"
               disabled={create.isPending}
-              className="rounded bg-mts px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className="rounded bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
             >
-              Создать
+              Create
             </button>
           </div>
-          {error && <p className="mt-2 text-xs text-mts">{error}</p>}
+          {error && <p className="mt-2 text-xs text-accent">{error}</p>}
         </form>
       </main>
       {profileOpen && <ProfileDialog user={user} onClose={() => setProfileOpen(false)} />}
       {deleting && (
         <ConfirmDialog
-          title="Удалить пространство"
+          title="Delete workspace"
           message={
             <>
-              Пространство <b>«{deleting.name}»</b> будет удалено безвозвратно —
-              вместе с командой, проектами, таймлайном, историей и всеми
-              ссылками. Доступ потеряют все участники.
+              The workspace <b>“{deleting.name}”</b> will be deleted permanently —
+              along with its team, projects, timeline, history and all links.
+              Every participant will lose access.
             </>
           }
-          confirmLabel="Удалить навсегда"
+          confirmLabel="Delete forever"
           verifyText={deleting.slug}
           onConfirm={() => remove.mutate(deleting)}
           onClose={() => setDeleting(null)}

@@ -1,83 +1,87 @@
-# Архитектура xOps Tideline
+# Tideline architecture
 
-## Обзор
+## Overview
 
-Один деплоймент: FastAPI отдаёт REST API под `/api/v1` и статику фронтенда как
-SPA-fallback. PostgreSQL — единственное хранилище. Cron-сервисы Railway гоняют
-бэкапы тем же Docker-образом.
+A single deployment: FastAPI serves the REST API under `/api/v1` and the
+frontend static bundle with an SPA fallback. PostgreSQL is the only data store.
+Backups run from the same Docker image, either as Railway cron services or as
+plain crontab entries on a VM.
 
 ```
-браузер ── /            → статика (React SPA)
-        ── /api/v1/*    → FastAPI (cookie-сессия)
-        ── /api/v1/s/*  → публичные read-only срезы (токен в пути)
+browser ── /            → static files (React SPA)
+        ── /api/v1/*    → FastAPI (cookie session)
+        ── /api/v1/s/*  → public read-only views (token in the path)
         ── /healthz /readyz /metrics
 
 FastAPI ── SQLAlchemy 2 async ── PostgreSQL
-cron-backup ── pg_dump + JSON → age → S3 (R2/B2, вне Railway)
-cron-verify ── S3 → временная БД → проверки → маркер .verified
+cron-backup ── pg_dump + JSON → age → S3 (R2/B2, outside the app's hosting)
+cron-verify ── S3 → temporary DB → checks → .verified marker
 ```
 
-## Бэкенд (`backend/app`)
+## Backend (`backend/app`)
 
-- `api/v1/` — роутеры. Тонкие: валидация, вызов домена, аудит.
-- `core/` — конфиг (pydantic-settings), сессии (itsdangerous, httpOnly cookie),
-  argon2, rate limiting, middleware наблюдаемости и security-заголовков.
-- `db/` — модели SQLAlchemy и фабрика сессий. **Каждая таблица несёт
-  `workspace_id`**; уникальные ключи и индексы включают его.
-- `domain/` — бизнес-логика без FastAPI: `capacity` (ёмкость и поиск ресурса),
-  `timeline` (агрегат для сетки), `week_close` (снимки план/факт, откат),
-  `accuracy` (план vs факт), `calendar`. Каждая функция принимает
-  `workspace_id` первым содержательным аргументом — запроса «по всем
-  пространствам» в кодовой базе не существует.
-- `services/` — экспорт XLSX/CSV (openpyxl), аудит, доступ к бэкапам.
+- `api/v1/` — routers. Kept thin: validation, a domain call, an audit entry.
+- `core/` — config (pydantic-settings), sessions (itsdangerous, httpOnly
+  cookie), argon2, rate limiting, observability and security-header middleware.
+- `db/` — SQLAlchemy models and the session factory. **Every table carries a
+  `workspace_id`**; unique keys and indexes include it.
+- `domain/` — business logic with no FastAPI dependency: `capacity` (capacity
+  and resource search), `timeline` (the aggregate behind the grid),
+  `week_close` (plan/actual snapshots, reopen), `accuracy` (plan vs. actual),
+  `calendar`. Every function takes `workspace_id` as its first meaningful
+  argument — there is no "across all workspaces" query anywhere in the codebase.
+- `services/` — XLSX/CSV export (openpyxl), audit log, backup access.
 
-### Мультиарендность с первого дня
+### Multi-tenant from day one
 
-В итерации 1 ровно одно пространство (`WORKSPACE_SLUG`) и один пользователь
-(`ADMIN_EMAIL`/`ADMIN_PASSWORD` сеются на старте). Но:
+Iteration 1 shipped with exactly one workspace (`WORKSPACE_SLUG`) and one user
+(`ADMIN_EMAIL`/`ADMIN_PASSWORD`, seeded at startup). Even so:
 
-- `workspace_id` есть во всех таблицах, запросах и индексах;
-- `membership` уже существует под роли итерации 2;
-- интеграционный тест изоляции (`tests/test_workspace_isolation.py`) проверяет,
-  что чужое пространство не читается и не мутируется.
+- `workspace_id` is present in every table, query and index;
+- `membership` already exists for the iteration 2 roles;
+- an isolation integration test (`tests/test_workspace_isolation.py`) verifies
+  that another workspace can be neither read nor mutated.
 
-### Ключевые решения по данным
+### Key data decisions
 
-- Дни аллокаций — `date` без времени, интерпретация в таймзоне пространства.
-- `allocation.category` — фиксированная категория загрузки
-  (`background` ¼ · `half` ½ · `most` ¾ · `full` 1); веса — в
-  `app/domain/categories.py`, агрегаты считаются по ним. **Сумма весов за день
-  не ограничена** — перегруз легален и подсвечивается.
-- Снимок недели — полный JSON-слепок аллокаций (`week_snapshot.payload`),
-  самодостаточный: diff план/факт считается по слепкам, а не по живым таблицам.
-- Мягкое удаление `deleted_at` у сотрудников и проектов; аудит `audit_log`
-  со старым и новым значением на каждую мутацию.
-- Токены read-only ссылок хранятся как SHA-256-хеши; в БД попадает только
-  префикс для отображения.
+- Allocation days are a plain `date` with no time component, interpreted in the
+  workspace timezone.
+- `allocation.category` is a fixed load category
+  (`background` ¼ · `half` ½ · `most` ¾ · `full` 1); the weights live in
+  `app/domain/categories.py` and all aggregates are computed from them. **The
+  sum of weights per day is not capped** — overload is legal and is highlighted.
+- A week snapshot is a complete JSON copy of the allocations
+  (`week_snapshot.payload`) and is self-contained: the plan/actual diff is
+  computed from snapshots, not from the live tables.
+- Soft delete via `deleted_at` on team members and projects; `audit_log`
+  records the old and new value for every mutation.
+- Read-only link tokens are stored as SHA-256 hashes; only a short prefix for
+  display ends up in the database.
 
-## Фронтенд (`frontend/src`)
+## Frontend (`frontend/src`)
 
-- TanStack Query — серверное состояние; все правки сетки оптимистичны:
-  локальный пересчёт агрегатов (`applyCells`) + `POST /allocations/bulk`,
-  при ошибке — инвалидация и откат к серверной правде.
-- Undo/redo — стек из 50 операций в сессии; операция = набор ячеек до/после.
-- Сетка — собственный компонент на CSS Grid (см. DECISIONS.md): клавиатура,
-  drag-fill за маркер, прямоугольное выделение, сворачиваемые блоки
-  сотрудников. Виртуализации нет, но строки — плоский список, её можно
-  добавить, не меняя модель навигации.
-- Публичный режим `/s/{token}` использует ту же сетку в `readOnly` и отдельные
-  публичные эндпоинты с урезанными сериализаторами.
+- TanStack Query holds server state; every grid edit is optimistic: aggregates
+  are recomputed locally (`applyCells`) and sent with `POST /allocations/bulk`;
+  on error the query is invalidated and the grid falls back to the server truth.
+- Undo/redo is a 50-operation stack per session; an operation is a set of
+  cells before/after.
+- The grid is a custom CSS Grid component (see DECISIONS.md): keyboard input,
+  drag-fill via a handle, rectangular selection, collapsible team member blocks.
+  There is no virtualization, but rows form a flat list, so it can be added
+  without changing the navigation model.
+- The public mode at `/s/{token}` reuses the same grid in `readOnly` and talks
+  to separate public endpoints with trimmed serializers.
 
-## Наблюдаемость
+## Observability
 
-- Структурные JSON-логи (structlog) с `request_id`.
-- `/metrics` — Prometheus: латентность по эндпоинтам, число аллокаций,
-  `backup_last_success_timestamp` (алерт: > 30 часов — бэкапа не было).
-- `/healthz` — процесс жив; `/readyz` — БД отвечает.
-- Sentry подключается при наличии `SENTRY_DSN`.
+- Structured JSON logs (structlog) with a `request_id`.
+- `/metrics` — Prometheus: per-endpoint latency, allocation count,
+  `backup_last_success_timestamp` (alert when > 30 hours — no backup ran).
+- `/healthz` — the process is alive; `/readyz` — the database responds.
+- Sentry is enabled when `SENTRY_DSN` is set.
 
-## Производительность
+## Performance
 
-`GET /timeline` собирает окно фиксированным числом запросов (сотрудники,
-аллокации, отсутствия, праздники, снимки) независимо от числа людей — N+1 нет.
-Двухнедельное окно на 9 человек — единицы миллисекунд запросов к БД.
+`GET /timeline` builds the window with a fixed number of queries (team members,
+allocations, absences, holidays, snapshots) regardless of team size — no N+1.
+A two-week window for 9 people costs single-digit milliseconds of database time.

@@ -1,7 +1,10 @@
-export const DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const MONTHS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
 export const MONTHS_GEN = [
-  "января", "февраля", "марта", "апреля", "мая", "июня",
-  "июля", "августа", "сентября", "октября", "ноября", "декабря",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 export function toISO(d: Date): string {
@@ -54,4 +57,10 @@ export function rangeLabel(fromIso: string, toIso: string): string {
 export function isWeekendISO(iso: string): boolean {
   const dow = (fromISO(iso).getDay() + 6) % 7;
   return dow >= 5;
+}
+
+/** "31 Aug" — compact date for week headers. */
+export function shortDate(iso: string): string {
+  const d = fromISO(iso);
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
 }

@@ -1,28 +1,37 @@
-# xOps Tideline — демо для менеджера
+# Tideline — demo walkthrough
 
-Приложение живёт на своём сервере (MWS Cloud), адрес новый, вход прежний.
+A guided tour of a Tideline instance loaded with the demo data set
+(`SEED_DEMO=1`, see the deploy guides). Replace the URL below with the address
+of your own instance.
 
-## Доступ
+## Access
 
-- **Ссылка:** https://xops-tideline.ru
-- **Логин:** тот же, что и раньше (значение `ADMIN_EMAIL` из `.env` на VM)
-- **Пароль:** тот же (значение `ADMIN_PASSWORD`)
-- **Роль:** owner — доступно всё.
+- **URL:** https://tideline.example.com
+- **Login:** the value of `ADMIN_EMAIL` from your environment
+- **Password:** the value of `ADMIN_PASSWORD`
+- **Role:** owner — everything is available.
 
-## Что посмотреть
+Demo team member accounts: `…@demo.local` / `demo-password-123` (viewer role —
+handy for showing what read-only access looks like).
 
-- **Таймлайн** — сетка «люди × дни», ввод загрузки с клавиатуры, отпуска,
-  светофор перегрузок; выходные скрыты, недели разделены зазором с красным
-  пунктиром tideline.
-- **Проекты** — карточки со светофором и апдейтами: только цель, задачи,
-  ссылки, апдейты (детали живут в Confluence).
-- **Точность** — план против факта по закрытым неделям.
-- **Команда** — сотрудники и участники с ролями (owner/editor/viewer),
-  инвайт-ссылки для коллег, share-ссылка «только чтение» — показать таймлайн
-  без логина.
+## What to look at
 
-В пространстве демо-данные: 7 сотрудников, 8 проектов (6 активных + 2
-закрытых), загрузка за 6 недель назад и 2 вперёд, отпуска, закрытые недели с
-планом/фактом, перегруженный сотрудник и «единственный носитель экспертизы».
-Демо-аккаунты сотрудников: `…@demo.local` / `demo-password-123` (роль viewer —
-удобно показать, как выглядит доступ «только смотреть»).
+- **Timeline** — the "people × days" grid: enter load from the keyboard, add
+  absences, watch the overload health colours; weekends are hidden, weeks are
+  separated by a gap with the dashed teal tideline marker. Try drag-fill via
+  the handle, rectangular selection, undo/redo and **Enough people?** for a
+  capacity check.
+- **Projects** — cards with health (green / amber / red) and weekly updates:
+  only the goal, tasks, links and updates (details live in your wiki).
+- **Accuracy** — plan vs. actual for closed weeks.
+- **Team** — team members and participants with roles (owner/editor/viewer),
+  invite links for colleagues, and a read-only share link to show the timeline
+  without logging in.
+
+## What the demo data contains
+
+- 7 team members, 8 projects (6 active + 2 finished);
+- load for the past 6 weeks and 2 weeks ahead;
+- vacations and other absences;
+- closed weeks with plan/actual snapshots;
+- one overloaded team member and one "sole expert" on a project.

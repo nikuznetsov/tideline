@@ -7,8 +7,9 @@ import { TimelineGrid } from "../components/timeline/TimelineGrid";
 import { summaryLoadClass } from "../lib/categories";
 import { addDays, currentMonday, dayLabel, rangeLabel } from "../lib/dates";
 import { fmtNum } from "../lib/format";
+import { Wordmark } from "../components/Wordmark";
+import { HealthDot } from "../components/HealthDot";
 
-const HEALTH: Record<string, string> = { green: "🟢", amber: "🟡", red: "🔴" };
 
 interface PublicProject {
   id: string;
@@ -48,10 +49,10 @@ export function SharePage() {
   if (timeline.isError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-        <div className="font-wide text-lg font-bold">Ссылка не действует</div>
+        <div className="font-display text-lg font-bold">This link is no longer valid</div>
         <p className="max-w-sm text-sm text-muted">
-          Ссылка отозвана, истекла или введена с ошибкой. Запросите новую у
-          владельца пространства.
+          The link was revoked, has expired or was mistyped. Ask the workspace
+          owner for a new one.
         </p>
       </div>
     );
@@ -62,10 +63,9 @@ export function SharePage() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-2">
-        <span className="font-wide text-sm font-bold uppercase">xOps</span>
-        <span className="font-wide text-sm font-medium text-mts">Tideline</span>
+        <Wordmark size="sm" />
         <span className="rounded bg-page px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
-          только чтение
+          Read only
         </span>
         <nav className="flex gap-1">
           {(["timeline", "projects"] as const).map((t) => (
@@ -76,7 +76,7 @@ export function SharePage() {
                 tab === t ? "bg-page font-medium" : "text-muted"
               }`}
             >
-              {t === "timeline" ? "Таймлайн" : "Проекты"}
+              {t === "timeline" ? "Timeline" : "Projects"}
             </button>
           ))}
         </nav>
@@ -113,11 +113,11 @@ export function SharePage() {
         {tab === "timeline" && (
           <>
             {timeline.isLoading && (
-              <p className="py-10 text-center text-muted">Загрузка…</p>
+              <p className="py-10 text-center text-muted">Loading…</p>
             )}
             {data && (
               <>
-                {/* десктоп: полная сетка */}
+                {/* desktop: full grid */}
                 <div className="hidden md:block">
                   <div className="mb-2">
                     <LoadLegend />
@@ -132,7 +132,7 @@ export function SharePage() {
                     readOnly
                   />
                 </div>
-                {/* мобильный: вертикальный список по сотрудникам */}
+                {/* mobile: vertical list per team member */}
                 <div className="space-y-3 md:hidden">
                   {data.members.map((tm) => (
                     <div key={tm.member.id} className="rounded-lg border border-line bg-surface p-3">
@@ -157,7 +157,7 @@ export function SharePage() {
                                 key={d.day}
                                 className={`rounded px-1.5 py-0.5 text-[10px] font-nums ${cls}`}
                               >
-                                {dayLabel(d.day)} {d.is_absent ? "отс." : fmtNum(load)}
+                                {dayLabel(d.day)} {d.is_absent ? "abs." : fmtNum(load)}
                               </span>
                             );
                           })}
@@ -173,13 +173,13 @@ export function SharePage() {
         {tab === "projects" && (
           <div className="mx-auto max-w-3xl">
             {projects.isLoading && (
-              <p className="py-10 text-center text-muted">Загрузка…</p>
+              <p className="py-10 text-center text-muted">Loading…</p>
             )}
             <div className="space-y-2">
               {(projects.data ?? []).map((p) => (
                 <div key={p.id} className="rounded-lg border border-line bg-surface px-4 py-3">
                   <div className="flex items-baseline gap-2">
-                    <span>{HEALTH[p.health]}</span>
+                    <HealthDot health={p.health} />
                     <span className="font-medium">{p.code}</span>
                     <span className="text-sm text-muted">{p.name}</span>
                   </div>

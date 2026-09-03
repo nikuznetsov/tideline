@@ -1,4 +1,4 @@
-"""убрать is_sole_owner из allocation (bus factor удалён)
+"""drop is_sole_owner from allocation (bus factor removed)
 
 Revision ID: e5b1c9a2d7f0
 Revises: d4f8a2b6c310

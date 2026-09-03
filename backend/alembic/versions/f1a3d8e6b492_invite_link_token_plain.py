@@ -1,4 +1,4 @@
-"""invite_link.token открытым текстом — чтобы владелец мог скопировать повторно
+"""invite_link.token in plain text — so the owner can copy it again
 
 Revision ID: f1a3d8e6b492
 Revises: e5b1c9a2d7f0
@@ -17,7 +17,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # у старых ссылок токен не восстановить из хэша — останется NULL
+    # old links' tokens cannot be recovered from the hash — they stay NULL
     op.add_column("invite_link", sa.Column("token", sa.Text(), nullable=True))
 
 

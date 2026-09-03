@@ -1,178 +1,182 @@
-# Запуск xOps Tideline на Railway + домен xops-tideline.ru
+# Deploying Tideline on Railway with a custom domain
 
-Пошагово: от нуля до работающего сервиса на своём домене с демо-данными,
-куда менеджер зайдёт под ролью **owner**.
+Step by step: from nothing to a running service on your own domain with demo
+data, where a manager logs in as **owner**.
 
-Что понадобится: аккаунт на [railway.com](https://railway.com) с планом **Hobby**
-(~$5/мес — нужен для кастомного домена и постоянно включённого сервиса),
-доступ к репозиторию `nikuznetsov/tideline` на GitHub, домен `xops-tideline.ru`
-в панели Selectel.
-
----
-
-## Шаг 1. Проект и база данных
-
-1. Railway → **New Project** → **Deploy from GitHub repo** → выбрать `tideline`.
-   Railway увидит `railway.toml` и `Dockerfile` и начнёт собирать образ. Первая
-   сборка упадёт (нет базы и переменных) — это нормально, продолжаем.
-2. В проекте → **New** → **Database** → **Add PostgreSQL**. Появится сервис
-   `Postgres`.
-3. Открыть сервис приложения (`web`) → вкладка **Variables** → настраиваем ниже.
+You will need: a [railway.com](https://railway.com) account on the **Hobby**
+plan (~$5/month — required for a custom domain and an always-on service),
+access to the `tideline` repository on GitHub, and a domain (the examples below
+use `tideline.example.com`) managed at any DNS provider.
 
 ---
 
-## Шаг 2. Переменные окружения
+## Step 1. Project and database
 
-Сгенерируйте два секрета локально (терминал):
+1. Railway → **New Project** → **Deploy from GitHub repo** → pick `tideline`.
+   Railway detects `railway.toml` and the `Dockerfile` and starts building the
+   image. The first build fails (no database, no variables) — that is expected,
+   carry on.
+2. In the project → **New** → **Database** → **Add PostgreSQL**. A `Postgres`
+   service appears.
+3. Open the application service (`web`) → **Variables** tab → configure as
+   described below.
+
+---
+
+## Step 2. Environment variables
+
+Generate two secrets locally (in a terminal):
 
 ```bash
-openssl rand -hex 32   # это SECRET_KEY
-openssl rand -hex 24   # это METRICS_TOKEN
+openssl rand -hex 32   # this is SECRET_KEY
+openssl rand -hex 24   # this is METRICS_TOKEN
 ```
 
-В сервисе `web` → **Variables** добавьте:
+In the `web` service → **Variables** add:
 
-| Переменная | Значение | Зачем |
+| Variable | Value | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | ссылка на БД (Railway подставит) |
-| `SECRET_KEY` | *(вывод первой команды)* | подпись cookie-сессий |
-| `ADMIN_EMAIL` | `demo@xops-tideline.ru` | логин владельца (его даём менеджеру) |
-| `ADMIN_PASSWORD` | *(придумайте надёжный)* | пароль владельца |
-| `APP_BASE_URL` | `https://xops-tideline.ru` | база для ссылок, https-режим |
-| `WORKSPACE_SLUG` | `xops` | адрес пространства по умолчанию |
-| `WORKSPACE_NAME` | `xOps` | название пространства |
-| `PORT` | `8000` | порт, который слушает приложение (совпадает с полем порта у Custom Domain) |
-| `TZ` | `Europe/Moscow` | таймзона |
-| `LOG_LEVEL` | `INFO` | логи |
-| `METRICS_TOKEN` | *(вывод второй команды)* | закрывает `/metrics` от посторонних |
-| `SKIP_PREDEPLOY_BACKUP` | `1` | пока не настроены бэкапы — не мешать деплою |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | database URL (Railway fills it in) |
+| `SECRET_KEY` | *(output of the first command)* | signs session cookies |
+| `ADMIN_EMAIL` | `admin@example.com` | the owner login (this is what you hand to the manager) |
+| `ADMIN_PASSWORD` | *(pick a strong one)* | the owner password |
+| `APP_BASE_URL` | `https://tideline.example.com` | base for links, enables https mode |
+| `WORKSPACE_SLUG` | `main` | slug of the default workspace |
+| `WORKSPACE_NAME` | `Main` | name of the default workspace |
+| `PORT` | `8000` | port the app listens on (must match the port field of the Custom Domain) |
+| `TZ` | `UTC` | timezone |
+| `LOG_LEVEL` | `INFO` | logging |
+| `METRICS_TOKEN` | *(output of the second command)* | protects `/metrics` from outsiders |
+| `SKIP_PREDEPLOY_BACKUP` | `1` | do not block the deploy until backups are configured |
 
-> `${{Postgres.DATABASE_URL}}` — это ссылка на переменную соседнего сервиса,
-> вводится ровно так, Railway её раскроет. `PORT` задавать не нужно — Railway
-> подставляет сам.
+> `${{Postgres.DATABASE_URL}}` is a reference to a variable of the neighbouring
+> service; type it exactly like that and Railway resolves it. Strictly speaking
+> `PORT` is optional — Railway injects it on its own.
 
-Сохраните — Railway передеплоит. Дождитесь зелёного статуса и проверки
-`/healthz`. Приложение уже живёт по временному адресу
-`https://<что-то>.up.railway.app` (виден в **Settings → Networking → Public
-Networking**).
+Save — Railway redeploys. Wait for the green status and the `/healthz` check.
+The app already lives at a temporary address `https://<something>.up.railway.app`
+(visible under **Settings → Networking → Public Networking**).
 
-Проверка: откройте этот адрес — увидите лендинг xOps Tideline. Войти можно
-под `ADMIN_EMAIL` / `ADMIN_PASSWORD`, но пространство пока пустое — заполним
-демо-данными на следующем шаге.
-
----
-
-## Шаг 3. Демо-данные (мок для менеджера)
-
-1. В `web` → **Variables** добавьте `SEED_DEMO` = `1`.
-2. Нажмите **Deploy** (или дождитесь авто-деплоя). В логах деплоя увидите
-   `seeding demo data` и `Демо-данные загружены.` — в пространство `xops`
-   зальются 7 сотрудников, 8 проектов (6 активных + 2 закрытых), загрузка за
-   6 недель назад и 2 вперёд, отпуска, закрытые недели с планом/фактом,
-   перегруженный сотрудник и «единственный носитель экспертизы».
-3. **Сразу после успешного деплоя удалите переменную `SEED_DEMO`** (или
-   поставьте `0`). Иначе каждый следующий деплой будет заново перезатирать
-   данные демо-набором.
-
-Аккаунт `ADMIN_EMAIL` — **owner** этого пространства, то есть видит и может
-всё: таймлайн, проекты, точность план/факт, команду, участников, инвайты,
-share-ссылки, настройки. Это и есть тестовый пользователь для менеджера.
+Check: open that address — you should see the Tideline landing page. You can log
+in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`, but the workspace is empty for now —
+we fill it with demo data in the next step.
 
 ---
 
-## Шаг 4. Домен xops-tideline.ru
+## Step 3. Demo data (a mock for the manager)
 
-### 4.1. Подключить домен в Railway
+1. In `web` → **Variables** add `SEED_DEMO` = `1`.
+2. Click **Deploy** (or wait for the auto-deploy). The deploy logs show
+   `seeding demo data` and `Demo data loaded.` — the `main` workspace receives
+   7 team members, 8 projects (6 active + 2 finished), load for 6 weeks back and
+   2 weeks ahead, vacations, closed weeks with plan/actual, an overloaded team
+   member and a "sole expert".
+3. **Immediately after a successful deploy, remove the `SEED_DEMO` variable**
+   (or set it to `0`). Otherwise every subsequent deploy overwrites the data
+   with the demo set again.
 
-1. `web` → **Settings** → **Networking** → **Custom Domain** → введите
-   `xops-tideline.ru`, затем ещё раз добавьте `www.xops-tideline.ru`.
-2. Railway покажет **точное значение CNAME** (вида `abc123.up.railway.app`).
-   **Используйте именно то значение, что показал Railway** — ниже оно
-   обозначено как `<railway-target>`.
-3. Если Railway спросит **порт** для домена — впишите `8000` (тот же, что в
-   переменной `PORT`; приложение слушает именно его, а HTTPS/443 Railway
-   терминирует сам).
+The `ADMIN_EMAIL` account is the **owner** of this workspace, i.e. it sees and
+can do everything: timeline, projects, plan/actual accuracy, team,
+participants, invites, share links, settings. This is the test user for the
+manager.
 
-### 4.2. Делегировать зону и прописать DNS в Selectel
+---
 
-**Сначала делегирование.** Если зона показывает «НЕ ДЕЛЕГИРОВАНА» — в разделе
-Selectel **«Домены»** (управление доменом, не DNS-хостинг) укажите NS-серверы
-Selectel: `a.ns.selectel.ru`, `b.ns.selectel.ru`, `c.ns.selectel.ru`,
-`d.ns.selectel.ru`. Пока зона не «ДЕЛЕГИРОВАНА», никакие записи не работают.
+## Step 4. The domain
 
-**Записи.** Тонкость: `CNAME` нельзя вешать на «голый» корень (конфликтует с
-SOA/NS — Selectel ответит `Conflicts with pre-existing RRset`). Для корня
-Selectel поддерживает тип **ALIAS** — это «CNAME для апекса», он и нужен.
+### 4.1. Attach the domain in Railway
 
-В зоне (DNS-хостинг) создайте две записи:
+1. `web` → **Settings** → **Networking** → **Custom Domain** → enter
+   `tideline.example.com`, then add `www.tideline.example.com` as well.
+2. Railway shows the **exact CNAME target** (something like
+   `abc123.up.railway.app`). **Use exactly the value Railway shows** — below it
+   is referred to as `<railway-target>`.
+3. If Railway asks for a **port** for the domain, enter `8000` (the same as the
+   `PORT` variable; the app listens on it, while HTTPS/443 is terminated by
+   Railway).
 
-| Тип | Имя | Значение | TTL |
+### 4.2. Configure DNS at your provider
+
+**Delegation first.** If the zone is not yet delegated to your DNS provider's
+name servers, set the provider's NS records at your registrar. Until the zone
+is delegated, no records will work.
+
+**Records.** One subtlety: a `CNAME` cannot be placed on the bare apex (it
+conflicts with SOA/NS — most providers reject it with an error like
+"conflicts with pre-existing RRset"). For the apex, use your provider's
+**ALIAS** / **ANAME** / "CNAME flattening" record type — a "CNAME for the
+apex" — which is exactly what is needed.
+
+Create two records in the zone:
+
+| Type | Name | Value | TTL |
 |---|---|---|---|
-| **ALIAS** | *(пусто = корень)* | `<railway-target>.` *(с точкой в конце)* | 3600 |
-| **TXT** | `_railway-verify` | `railway-verify=…` *(полная строка из Railway)* | 3600 |
+| **ALIAS** | *(empty = apex)* | `<railway-target>.` *(with the trailing dot)* | 3600 |
+| **TXT** | `_railway-verify` | `railway-verify=…` *(the full string from Railway)* | 3600 |
 
-`<railway-target>` — значение, которое показал Railway в «Configure DNS
-Records» (вида `in7cjahj.up.railway.app`). Корневой домен заработает напрямую,
-`APP_BASE_URL` оставьте `https://xops-tideline.ru`.
+`<railway-target>` is the value Railway shows under "Configure DNS Records"
+(something like `in7cjahj.up.railway.app`). The apex domain then works
+directly; keep `APP_BASE_URL` at `https://tideline.example.com`.
 
-> Если нужен ещё и `www` — добавьте отдельно `CNAME` `www` → `<railway-target>`
-> (на поддомене CNAME разрешён) и добавьте `www.xops-tideline.ru` в Custom
-> Domain Railway.
+> If you also want `www`, add a separate `CNAME` `www` → `<railway-target>`
+> (CNAME is allowed on a subdomain) and add `www.tideline.example.com` to the
+> Railway Custom Domain list.
 
-### 4.3. Дождаться TLS
+### 4.3. Wait for TLS
 
-После появления DNS Railway сам выпустит сертификат Let's Encrypt (несколько
-минут — час, пока раскатается DNS). В **Custom Domain** напротив домена
-загорится зелёная галочка. Откройте `https://xops-tideline.ru` — должен
-открыться сайт по https.
+Once DNS is visible, Railway issues a Let's Encrypt certificate on its own (a
+few minutes to an hour while DNS propagates). A green check mark appears next
+to the domain under **Custom Domain**. Open `https://tideline.example.com` —
+the site should load over https.
 
-Если меняли `APP_BASE_URL` — Railway передеплоит; убедитесь, что значение
-совпадает с адресом, который реально даёте менеджеру.
-
----
-
-## Шаг 5. Что передать менеджеру
-
-- **Ссылка:** `https://xops-tideline.ru`
-- **Логин:** значение `ADMIN_EMAIL` (`demo@xops-tideline.ru`)
-- **Пароль:** значение `ADMIN_PASSWORD`
-- **Роль:** owner — доступно всё.
-
-Что посмотреть: вкладка **Таймлайн** (сетка «люди × дни», ввод загрузки с
-клавиатуры), **Проекты** (карточки, светофор, апдейты), **Точность** (план
-против факта по закрытым неделям), **Команда** (сотрудники + участники с
-ролями, инвайт-ссылки, share-ссылка «только чтение» для показа без логина).
+If you changed `APP_BASE_URL`, Railway redeploys; make sure the value matches
+the address you actually give to the manager.
 
 ---
 
-## Шаг 6. Потом: бэкапы и метрики (для настоящей эксплуатации)
+## Step 5. What to hand to the manager
 
-Пока стоит `SKIP_PREDEPLOY_BACKUP=1` — бэкапы не делаются. Перед реальной
-эксплуатацией (не демо) настройте по `docs/RESTORE.md`:
+- **URL:** `https://tideline.example.com`
+- **Login:** the value of `ADMIN_EMAIL` (`admin@example.com`)
+- **Password:** the value of `ADMIN_PASSWORD`
+- **Role:** owner — everything is available.
 
-1. Заведите S3-совместимый бакет **вне Railway** (у Railway своего S3 нет;
-   MinIO на Railway не годится — то же окружение, что и БД). Варианты:
-   **Selectel Object Storage** (логично, если аккаунт уже там — endpoint
-   покажет панель Object Storage), Cloudflare R2 или Backblaze B2.
-2. Сгенерируйте age-ключи: `age-keygen -o age.key` (публичный → в переменные
-   Railway `BACKUP_ENCRYPTION_KEY`, приватный `AGE_SECRET_KEY` — храните в
-   отдельном менеджере секретов, **не** рядом с приложением).
-3. Задайте `BACKUP_S3_ENDPOINT/BUCKET/ACCESS_KEY/SECRET_KEY`, уберите
+What to look at: the **Timeline** tab (the "people × days" grid, keyboard load
+entry), **Projects** (cards, health, updates), **Accuracy** (plan vs. actual
+for closed weeks), **Team** (team members + participants with roles, invite
+links, a read-only share link for showing the timeline without a login).
+
+---
+
+## Step 6. Later: backups and metrics (for real operation)
+
+While `SKIP_PREDEPLOY_BACKUP=1` is set, no backups are taken. Before real use
+(not a demo), configure them following `docs/RESTORE.md`:
+
+1. Create an S3-compatible bucket **outside Railway** (Railway has no S3 of its
+   own; MinIO on Railway does not count — same environment as the database).
+   Options: your cloud provider's object storage, Cloudflare R2 or Backblaze B2.
+2. Generate age keys: `age-keygen -o age.key` (the public key goes to the
+   Railway variable `BACKUP_ENCRYPTION_KEY`; keep the private `AGE_SECRET_KEY`
+   in a separate secrets manager, **not** next to the app).
+3. Set `BACKUP_S3_ENDPOINT/BUCKET/ACCESS_KEY/SECRET_KEY` and remove
    `SKIP_PREDEPLOY_BACKUP`.
-4. Создайте два cron-сервиса из этого же репозитория (см. комментарии в
-   `railway.toml`): `cron-backup` (`0 0 * * *`) и `cron-verify` (`0 4 * * 0`).
+4. Create two cron services from the same repository (see the comments in
+   `railway.toml`): `cron-backup` (`0 0 * * *`) and `cron-verify`
+   (`0 4 * * 0`).
 
-`/metrics` уже закрыт токеном `METRICS_TOKEN` — Prometheus скрейпит с
-`Authorization: Bearer <токен>`.
+`/metrics` is already protected by `METRICS_TOKEN` — Prometheus scrapes it
+with `Authorization: Bearer <token>`.
 
 ---
 
-## Чек-лист перед показом
+## Pre-demo checklist
 
-- [ ] Деплой зелёный, `/healthz` отвечает.
-- [ ] `SECRET_KEY` и `ADMIN_PASSWORD` заданы (иначе прод-старт падает — это
-      защита от дефолтных секретов).
-- [ ] Демо-данные залиты, **`SEED_DEMO` удалён**.
-- [ ] `https://xops-tideline.ru` открывается по https, вход под owner работает.
-- [ ] `APP_BASE_URL` совпадает с реальным адресом.
-- [ ] (перед боем) бэкапы настроены, `SKIP_PREDEPLOY_BACKUP` убран.
+- [ ] The deploy is green and `/healthz` responds.
+- [ ] `SECRET_KEY` and `ADMIN_PASSWORD` are set (otherwise the production start
+      fails — this guards against default secrets).
+- [ ] Demo data is loaded and **`SEED_DEMO` is removed**.
+- [ ] `https://tideline.example.com` opens over https and the owner login works.
+- [ ] `APP_BASE_URL` matches the real address.
+- [ ] (before going live) backups are configured and `SKIP_PREDEPLOY_BACKUP`
+      is removed.

@@ -15,26 +15,26 @@ async def get_current_user(
 ) -> AppUser:
     token = request.cookies.get(SESSION_COOKIE)
     if not token:
-        raise HTTPException(status_code=401, detail="Не авторизован")
+        raise HTTPException(status_code=401, detail="Not authenticated")
     uid = read_session_token(token)
     if not uid:
-        raise HTTPException(status_code=401, detail="Сессия истекла")
+        raise HTTPException(status_code=401, detail="Session expired")
     try:
         user_id = uuid.UUID(uid)
     except (ValueError, TypeError):
-        raise HTTPException(status_code=401, detail="Сессия недействительна")
+        raise HTTPException(status_code=401, detail="Invalid session")
     user = await db.get(AppUser, user_id)
     if not user:
-        raise HTTPException(status_code=401, detail="Пользователь не найден")
+        raise HTTPException(status_code=401, detail="User not found")
     return user
 
 
 async def get_current_superuser(
     user: AppUser = Depends(get_current_user),
 ) -> AppUser:
-    """Глобальные операции обслуживания (бэкапы): только суперпользователь."""
+    """Global maintenance operations (backups): superuser only."""
     if not user.is_superuser:
-        raise HTTPException(status_code=403, detail="Доступно только администратору")
+        raise HTTPException(status_code=403, detail="Administrators only")
     return user
 
 
@@ -43,16 +43,16 @@ async def _workspace_with_role(
     db: AsyncSession,
     user: AppUser,
 ) -> tuple[Workspace, str]:
-    """Пространство по слагу из пути + роль пользователя в нём.
+    """Workspace by slug from the path + the user's role in it.
 
-    Отсутствие membership отвечает 404, а не 403: существование чужих
-    пространств не раскрывается.
+    A missing membership answers 404, not 403: the existence of other
+    people's workspaces is not disclosed.
     """
     ws = (
         await db.execute(select(Workspace).where(Workspace.slug == workspace_slug))
     ).scalar_one_or_none()
     if not ws:
-        raise HTTPException(status_code=404, detail="Пространство не найдено")
+        raise HTTPException(status_code=404, detail="Workspace not found")
     membership = (
         await db.execute(
             select(Membership).where(
@@ -61,7 +61,7 @@ async def _workspace_with_role(
         )
     ).scalar_one_or_none()
     if not membership:
-        raise HTTPException(status_code=404, detail="Пространство не найдено")
+        raise HTTPException(status_code=404, detail="Workspace not found")
     return ws, membership.role
 
 
@@ -70,7 +70,7 @@ async def get_workspace(
     db: AsyncSession = Depends(get_db),
     user: AppUser = Depends(get_current_user),
 ) -> Workspace:
-    """Любой участник пространства (viewer и выше)."""
+    """Any workspace participant (viewer and above)."""
     ws, _ = await _workspace_with_role(workspace_slug, db, user)
     return ws
 
@@ -80,11 +80,11 @@ async def get_workspace_editor(
     db: AsyncSession = Depends(get_db),
     user: AppUser = Depends(get_current_user),
 ) -> Workspace:
-    """Мутирующие операции: editor или owner."""
+    """Mutating operations: editor or owner."""
     ws, role = await _workspace_with_role(workspace_slug, db, user)
     if role not in ("owner", "editor"):
         raise HTTPException(
-            status_code=403, detail="У вас режим просмотра — изменения недоступны"
+            status_code=403, detail="You have read-only access — changes are not allowed"
         )
     return ws
 
@@ -94,11 +94,11 @@ async def get_workspace_owner(
     db: AsyncSession = Depends(get_db),
     user: AppUser = Depends(get_current_user),
 ) -> Workspace:
-    """Управление пространством: только owner."""
+    """Workspace management: owner only."""
     ws, role = await _workspace_with_role(workspace_slug, db, user)
     if role != "owner":
         raise HTTPException(
-            status_code=403, detail="Доступно только владельцу пространства"
+            status_code=403, detail="Only the workspace owner can do this"
         )
     return ws
 
@@ -115,7 +115,7 @@ async def get_my_role(
 async def get_share_workspace(
     token: str, db: AsyncSession = Depends(get_db)
 ) -> Workspace:
-    """Разрешает read-only доступ по токену ссылки. 404 на всё невалидное."""
+    """Grants read-only access by link token. 404 for anything invalid."""
     link = (
         await db.execute(
             select(ShareLink).where(ShareLink.token_hash == hash_share_token(token))
@@ -127,12 +127,12 @@ async def get_share_workspace(
         or link.revoked_at is not None
         or (link.expires_at is not None and _aware(link.expires_at) < now)
     ):
-        raise HTTPException(status_code=404, detail="Ссылка не найдена")
+        raise HTTPException(status_code=404, detail="Link not found")
     link.last_accessed_at = now
     await db.commit()
     ws = await db.get(Workspace, link.workspace_id)
     if not ws:
-        raise HTTPException(status_code=404, detail="Ссылка не найдена")
+        raise HTTPException(status_code=404, detail="Link not found")
     return ws
 
 

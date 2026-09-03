@@ -1,27 +1,27 @@
-# Конфигурация Railway как код. Один проект, окружения production и staging.
+# Railway configuration as code. One project, production and staging environments.
 #
-# Сервисы:
-#   web         — это приложение (Dockerfile в корне)
-#   postgres    — managed Postgres (создаётся в UI/CLI, DATABASE_URL пробрасывается)
-#   cron-backup — тот же образ, ежедневный бэкап в 03:00 МСК (00:00 UTC)
-#   cron-verify — тот же образ, еженедельная проверка восстановимости
+# Services:
+#   web         — this application (Dockerfile in the repo root)
+#   postgres    — managed Postgres (created in the UI/CLI, DATABASE_URL is referenced)
+#   cron-backup — the same image, daily backup at 00:00 UTC
+#   cron-verify — the same image, weekly restore check
 
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Деплой останавливается, если pre-deploy бэкап не удался: && — жёсткая цепочка.
-# При первом деплое (пустой бакет/БД ещё нет) можно временно задать SKIP_PREDEPLOY_BACKUP=1.
+# The deploy stops if the pre-deploy backup fails: && is a strict chain.
+# On the very first deploy (empty bucket / no DB yet) you may temporarily set SKIP_PREDEPLOY_BACKUP=1.
 preDeployCommand = "sh -c 'if [ \"$SKIP_PREDEPLOY_BACKUP\" = \"1\" ]; then echo skip backup; else BACKUP_LABEL=pre-migration-$(python -m alembic heads --resolve-dependencies 2>/dev/null | head -c 12 || echo unknown) python /srv/ops/backup.py; fi && python -m alembic upgrade head && if [ \"$SEED_DEMO\" = \"1\" ]; then echo seeding demo data && python -m app.seed; fi'"
-# через sh -c, иначе Railway не раскрывает $PORT и uvicorn получает строку "$PORT"
+# via sh -c, otherwise Railway does not expand $PORT and uvicorn receives the literal string "$PORT"
 startCommand = "sh -c 'uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 
-# --- cron-сервисы: создать в Railway два сервиса из этого же репозитория ---
-# cron-backup:  cronSchedule = "0 0 * * *"  (03:00 МСК)
+# --- cron services: create two services in Railway from this same repository ---
+# cron-backup:  cronSchedule = "0 0 * * *"  (00:00 UTC)
 #               startCommand = "python /srv/ops/backup.py"
-# cron-verify:  cronSchedule = "0 4 * * 0"  (воскресенье 07:00 МСК)
+# cron-verify:  cronSchedule = "0 4 * * 0"  (Sunday 04:00 UTC)
 #               startCommand = "python /srv/ops/verify_backup.py"

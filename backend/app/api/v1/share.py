@@ -94,7 +94,7 @@ async def revoke_share_link(
         )
     ).scalar_one_or_none()
     if not link:
-        raise HTTPException(404, "Ссылка не найдена")
+        raise HTTPException(404, "Link not found")
     link.revoked_at = datetime.now(timezone.utc)
     record_audit(db, ws.id, user.id, "share_link", link.id, "revoke",
                  {"token_prefix": link.token_prefix}, None)
@@ -102,7 +102,7 @@ async def revoke_share_link(
     return {"ok": True}
 
 
-# ---------- публичные read-only эндпоинты ----------
+# ---------- public read-only endpoints ----------
 
 public_router = APIRouter(prefix="/s", tags=["public"])
 
@@ -122,7 +122,7 @@ async def public_timeline(
     if not date_to:
         date_to = date_from + timedelta(days=13)
     if (date_to - date_from).days > 60:
-        raise HTTPException(422, "Слишком большой диапазон")
+        raise HTTPException(422, "Date range is too large")
     return await build_timeline(db, ws.id, date_from, date_to, public=True)
 
 
@@ -149,7 +149,7 @@ async def public_projects(
         .scalars()
         .all()
     )
-    # публичный сериализатор: только безопасные поля, никаких заметок и внутренних md
+    # public serializer: safe fields only, no notes or internal markdown
     return [
         {
             "id": str(p.id),

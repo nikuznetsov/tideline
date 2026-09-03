@@ -1,6 +1,6 @@
-"""Изоляция по workspace_id: данные чужого пространства не видны и не редактируются.
+"""Isolation by workspace_id: another workspace's data is neither visible nor editable.
 
-Написан сейчас, пока пространство одно, — по требованию ТЗ §14.
+Written now, while there is a single workspace, as required by the spec §14.
 """
 
 from datetime import timedelta
@@ -14,9 +14,9 @@ from app.domain.timeline import build_timeline
 async def test_timeline_does_not_leak_foreign_workspace(
     db, workspace, other_workspace, monday
 ):
-    foreign_member = Member(workspace_id=other_workspace.id, name="Чужой")
+    foreign_member = Member(workspace_id=other_workspace.id, name="Outsider")
     foreign_project = Project(
-        workspace_id=other_workspace.id, code="ALIEN", name="Чужой проект"
+        workspace_id=other_workspace.id, code="ALIEN", name="Foreign project"
     )
     db.add(foreign_member)
     db.add(foreign_project)
@@ -41,7 +41,7 @@ async def test_timeline_does_not_leak_foreign_workspace(
 
 
 async def test_capacity_search_does_not_leak(db, workspace, other_workspace, monday):
-    db.add(Member(workspace_id=other_workspace.id, name="Чужой"))
+    db.add(Member(workspace_id=other_workspace.id, name="Outsider"))
     await db.commit()
     result = await search_capacity(
         db, workspace.id, monday, monday, Decimal("1"), today=monday
@@ -53,9 +53,9 @@ async def test_capacity_search_does_not_leak(db, workspace, other_workspace, mon
 async def test_api_cannot_touch_foreign_allocation(
     auth_client, db, other_workspace, team, monday
 ):
-    foreign_member = Member(workspace_id=other_workspace.id, name="Чужой")
+    foreign_member = Member(workspace_id=other_workspace.id, name="Outsider")
     foreign_project = Project(
-        workspace_id=other_workspace.id, code="ALIEN", name="Чужой проект"
+        workspace_id=other_workspace.id, code="ALIEN", name="Foreign project"
     )
     db.add(foreign_member)
     db.add(foreign_project)
@@ -71,11 +71,11 @@ async def test_api_cannot_touch_foreign_allocation(
     await db.commit()
 
     resp = await auth_client.patch(
-        f"/api/v1/w/xops/allocations/{alloc.id}", json={"category": "half"}
+        f"/api/v1/w/acme/allocations/{alloc.id}", json={"category": "half"}
     )
     assert resp.status_code == 404
-    resp = await auth_client.delete(f"/api/v1/w/xops/allocations/{alloc.id}")
+    resp = await auth_client.delete(f"/api/v1/w/acme/allocations/{alloc.id}")
     assert resp.status_code == 404
-    # и проект чужого пространства недоступен
-    resp = await auth_client.get(f"/api/v1/w/xops/projects/{foreign_project.id}")
+    # and the foreign workspace's project is inaccessible
+    resp = await auth_client.get(f"/api/v1/w/acme/projects/{foreign_project.id}")
     assert resp.status_code == 404

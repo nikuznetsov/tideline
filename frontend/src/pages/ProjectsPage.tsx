@@ -4,13 +4,13 @@ import { Link } from "react-router-dom";
 import { getWorkspaceSlug, wapi, workspaceUrl } from "../api/client";
 import type { ProjectListItem } from "../api/types";
 import { useWorkspace } from "../workspace";
+import { HealthDot } from "../components/HealthDot";
 
-const HEALTH: Record<string, string> = { green: "🟢", amber: "🟡", red: "🔴" };
 const LIFECYCLE: Record<string, string> = {
-  active: "Активен",
-  support: "Поддержка",
-  paused: "Приостановлен",
-  finished: "Завершён",
+  active: "Active",
+  support: "Support",
+  paused: "Paused",
+  finished: "Finished",
 };
 
 export function ProjectsPage() {
@@ -48,14 +48,14 @@ export function ProjectsPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-4">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h1 className="font-wide text-lg font-bold">Проекты</h1>
+        <h1 className="font-display text-lg font-bold">Projects</h1>
         <label className="flex items-center gap-1.5 text-xs text-muted">
           <input
             type="checkbox"
             checked={showFinished}
             onChange={(e) => setShowFinished(e.target.checked)}
           />
-          показывать завершённые
+          show finished
         </label>
         <div className="ml-auto flex gap-2">
           <a
@@ -69,7 +69,7 @@ export function ProjectsPage() {
             onClick={() => setCreating((v) => !v)}
             className="rounded bg-ink px-3 py-1 text-xs font-medium text-surface"
           >
-            + Проект
+            + Project
           </button>
           )}
         </div>
@@ -81,7 +81,7 @@ export function ProjectsPage() {
           className="mb-3 flex items-end gap-2 rounded border border-line bg-surface p-3"
         >
           <label className="text-xs text-muted">
-            Код
+            Code
             <input
               name="code"
               required
@@ -91,24 +91,24 @@ export function ProjectsPage() {
             />
           </label>
           <label className="flex-1 text-xs text-muted">
-            Название
+            Name
             <input
               name="name"
               required
-              placeholder="RAG-платформа для поддержки"
+              placeholder="RAG platform for support"
               className="mt-1 block w-full rounded border border-line bg-page px-2 py-1.5 text-sm text-ink"
             />
           </label>
-          <button className="rounded bg-mts px-3 py-1.5 text-sm font-medium text-white">
-            Создать
+          <button className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink">
+            Create
           </button>
         </form>
       )}
 
-      {projects.isLoading && <p className="py-8 text-center text-muted">Загрузка…</p>}
+      {projects.isLoading && <p className="py-8 text-center text-muted">Loading…</p>}
       {projects.isSuccess && rows.length === 0 && (
         <p className="py-8 text-center text-sm text-muted">
-          Проектов пока нет — создайте первый кнопкой «+ Проект».
+          No projects yet — create the first one with the “+ Project” button.
         </p>
       )}
       {rows.length > 0 && (
@@ -116,11 +116,11 @@ export function ProjectsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-muted">
-                <th className="px-3 py-2">Код</th>
-                <th className="px-3 py-2">Название · апдейт недели</th>
-                <th className="px-2 py-2" title="Светофор проекта: 🟢 в порядке, 🟡 требует внимания, 🔴 проблемы">Светофор</th>
-                <th className="px-3 py-2">Статус</th>
-                <th className="w-20 py-2 pl-2 pr-4 text-right">Людей</th>
+                <th className="px-3 py-2">Code</th>
+                <th className="px-3 py-2">Name · weekly update</th>
+                <th className="px-2 py-2" title="Project health: green on track, amber needs attention, red problems">Health</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="w-20 py-2 pl-2 pr-4 text-right">People</th>
               </tr>
             </thead>
             <tbody>
@@ -132,7 +132,7 @@ export function ProjectsPage() {
                   }`}
                 >
                   <td className="px-3 py-2">
-                    <Link to={wsPath(`/projects/${p.id}`)} className="font-medium text-mts">
+                    <Link to={wsPath(`/projects/${p.id}`)} className="font-medium text-accent">
                       {p.code}
                     </Link>
                   </td>
@@ -144,7 +144,7 @@ export function ProjectsPage() {
                       </div>
                     )}
                   </td>
-                  <td className="px-2 py-2">{HEALTH[p.health]}</td>
+                  <td className="px-2 py-2"><HealthDot health={p.health} /></td>
                   <td className="px-3 py-2 text-xs">{LIFECYCLE[p.lifecycle]}</td>
                   <td className="py-2 pl-2 pr-4 text-right font-nums">
                     {p.active_members_count}

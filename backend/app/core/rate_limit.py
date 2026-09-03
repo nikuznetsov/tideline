@@ -5,12 +5,12 @@ from fastapi import HTTPException, Request
 
 
 class SlidingWindowLimiter:
-    """Простой in-memory rate limiter. Достаточно для одного инстанса.
+    """Simple in-memory rate limiter. Good enough for a single instance.
 
-    Ключи выселяются, когда их окно истекло, поэтому словарь не растёт
-    бесконечно от интернет-трафика на публичных эндпоинтах."""
+    Keys are evicted once their window has expired, so the dict does not grow
+    without bound from internet traffic on public endpoints."""
 
-    # как часто пробегать по всем ключам и выкидывать протухшие
+    # how often to sweep all keys and drop the stale ones
     _SWEEP_EVERY = 1000
 
     def __init__(self, max_requests: int, window_seconds: float):
@@ -33,7 +33,7 @@ class SlidingWindowLimiter:
         return True
 
     def _sweep(self, now: float) -> None:
-        """Периодическая уборка: убираем ключи, чьи хиты полностью протухли."""
+        """Periodic cleanup: drop keys whose hits have all expired."""
         self._since_sweep = 0
         cutoff = now - self.window
         stale = [k for k, h in self._hits.items() if not h or h[-1] <= cutoff]
@@ -46,9 +46,9 @@ share_limiter = SlidingWindowLimiter(max_requests=120, window_seconds=60)
 
 
 def client_ip(request: Request) -> str:
-    # X-Forwarded-For: client, proxy1, ..., trusted-proxy. Левые значения клиент
-    # может подделать (обход лимита брутфорса), поэтому берём правое — его
-    # добавляет наш прокси (Railway) и видит реальный адрес.
+    # X-Forwarded-For: client, proxy1, ..., trusted-proxy. The client can forge
+    # the leftmost values (to bypass the brute-force limit), so we take the
+    # rightmost one — appended by our own proxy, which sees the real address.
     fwd = request.headers.get("x-forwarded-for")
     if fwd:
         return fwd.split(",")[-1].strip()
@@ -57,4 +57,4 @@ def client_ip(request: Request) -> str:
 
 def enforce(limiter: SlidingWindowLimiter, request: Request) -> None:
     if not limiter.check(client_ip(request)):
-        raise HTTPException(status_code=429, detail="Слишком много запросов")
+        raise HTTPException(status_code=429, detail="Too many requests")

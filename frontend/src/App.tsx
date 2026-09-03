@@ -37,7 +37,7 @@ export default function App() {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted">
-        Загрузка…
+        Loading…
       </div>
     );
   }
@@ -85,7 +85,7 @@ export default function App() {
   );
 }
 
-/** После входа: next из URL → последнее пространство → первое → список. */
+/** After login: `next` from the URL → last workspace → first one → the list. */
 function HomeRedirect() {
   const [params] = useSearchParams();
   const workspaces = useMyWorkspaces();
@@ -94,7 +94,7 @@ function HomeRedirect() {
   if (workspaces.isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted">
-        Загрузка…
+        Loading…
       </div>
     );
   }

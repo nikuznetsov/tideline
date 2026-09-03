@@ -1,0 +1,5 @@
+# Backup cron jobs on the VM (the equivalent of the cron services in railway.toml).
+# Install: crontab ops/compose/crontab  (replaces the current crontab entirely!)
+# Times are system time (usually UTC on a VM): daily backup at 00:00 UTC, verify on Sunday at 04:00 UTC.
+0 0 * * * cd /home/tideline/ops/compose && docker compose run --rm app python /srv/ops/backup.py >> /var/log/tideline-backup.log 2>&1
+0 4 * * 0 cd /home/tideline/ops/compose && docker compose run --rm app python /srv/ops/verify_backup.py >> /var/log/tideline-backup.log 2>&1

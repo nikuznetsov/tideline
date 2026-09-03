@@ -18,34 +18,34 @@ export function AccuracyPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-4">
       <div className="mb-1 flex items-center gap-3">
-        <h1 className="font-wide text-lg font-bold">Точность планирования</h1>
+        <h1 className="font-display text-lg font-bold">Planning accuracy</h1>
         <select
           value={weeks}
           onChange={(e) => setWeeks(Number(e.target.value))}
           className="rounded border border-line bg-surface px-2 py-1 text-xs"
         >
           {[4, 8, 12, 26].map((n) => (
-            <option key={n} value={n}>за {n} недель</option>
+            <option key={n} value={n}>last {n} weeks</option>
           ))}
         </select>
       </div>
       <p className="mb-4 text-xs text-muted">
-        Сравнение плана, зафиксированного за неделю до, с фактом на момент
-        закрытия недели.
+        Compares the plan captured a week in advance with the actual load at
+        the moment the week was closed.
       </p>
 
-      {report.isLoading && <p className="py-8 text-center text-muted">Загрузка…</p>}
+      {report.isLoading && <p className="py-8 text-center text-muted">Loading…</p>}
       {r && r.weeks_analyzed === 0 && (
         <p className="rounded border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Пока нет ни одной пары план/факт. Закройте первую неделю — и здесь
-          появится статистика.
+          No plan/actual pairs yet. Close your first week and statistics will
+          appear here.
         </p>
       )}
       {r && r.weeks_analyzed > 0 && (
         <>
           <div className="mb-4 rounded-lg border border-line bg-surface p-4">
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-              Ошибка по неделям, дней
+              Error by week, days
             </div>
             <div className="space-y-1.5">
               {[...r.weeks].reverse().map((w) => (
@@ -65,7 +65,7 @@ export function AccuracyPage() {
                     {fmtNum(w.abs_error)}
                   </span>
                   <span className="w-40 shrink-0 whitespace-nowrap text-right text-muted font-nums">
-                    план {fmtNum(w.plan_total)} · факт {fmtNum(w.fact_total)}
+                    plan {fmtNum(w.plan_total)} · actual {fmtNum(w.fact_total)}
                   </span>
                 </div>
               ))}
@@ -75,7 +75,7 @@ export function AccuracyPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-lg border border-line bg-surface p-4">
               <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-                Средняя абсолютная ошибка по сотруднику
+                Mean absolute error per team member
               </div>
               <table className="w-full text-sm">
                 <tbody>
@@ -93,21 +93,21 @@ export function AccuracyPage() {
             <div className="space-y-4">
               <div className="rounded-lg border border-line bg-surface p-4">
                 <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">
-                  Свободный ресурс не был задействован
+                  Free capacity left unused
                 </div>
-                <div className="font-wide text-2xl font-bold font-nums">
+                <div className="font-display text-2xl font-bold font-nums">
                   {Math.round(r.idle_weeks_share * 100)}%
                 </div>
                 <div className="text-xs text-muted">
-                  недель, где формально свободные люди так и остались свободными
+                  of weeks where people marked free stayed free
                 </div>
               </div>
               <div className="rounded-lg border border-line bg-surface p-4">
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-                  Превышение плана по проектам
+                  Plan overrun by project
                 </div>
                 {r.overrun_projects.length === 0 && (
-                  <p className="text-xs text-muted">Превышений нет.</p>
+                  <p className="text-xs text-muted">No overruns.</p>
                 )}
                 {r.overrun_projects.length > 0 && (
                   <table className="w-full text-sm">
@@ -116,7 +116,7 @@ export function AccuracyPage() {
                         <tr key={p.project_id} className="border-b border-line/40 last:border-0">
                           <td className="w-16 py-1 pr-2 font-medium">{p.code}</td>
                           <td className="truncate py-1 pr-2 text-muted">{p.name}</td>
-                          <td className="w-14 py-1 text-right font-nums text-mts">
+                          <td className="w-14 py-1 text-right font-nums text-accent">
                             +{fmtNum(p.total_overrun)}
                           </td>
                         </tr>

@@ -31,11 +31,11 @@ export function ProfileDialog({ user, onClose }: { user: User; onClose: () => vo
       await api.patch("/auth/me", { name, email });
       await queryClient.invalidateQueries({ queryKey: ["me"] });
       queryClient.invalidateQueries({ queryKey: ["participants"] });
-      setProfileMsg({ ok: true, text: "Сохранено" });
+      setProfileMsg({ ok: true, text: "Saved" });
     } catch (err) {
       setProfileMsg({
         ok: false,
-        text: err instanceof ApiError ? err.message : "Не удалось сохранить",
+        text: err instanceof ApiError ? err.message : "Could not save",
       });
     } finally {
       setProfileBusy(false);
@@ -53,11 +53,11 @@ export function ProfileDialog({ user, onClose }: { user: User; onClose: () => vo
       });
       setCurrentPassword("");
       setNewPassword("");
-      setPwMsg({ ok: true, text: "Пароль изменён" });
+      setPwMsg({ ok: true, text: "Password changed" });
     } catch (err) {
       setPwMsg({
         ok: false,
-        text: err instanceof ApiError ? err.message : "Не удалось изменить пароль",
+        text: err instanceof ApiError ? err.message : "Could not change password",
       });
     } finally {
       setPwBusy(false);
@@ -69,15 +69,15 @@ export function ProfileDialog({ user, onClose }: { user: User; onClose: () => vo
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
       role="dialog"
-      aria-label="Профиль"
+      aria-label="Profile"
     >
       <div
         className="max-h-full w-[420px] overflow-auto rounded-lg border border-line bg-surface p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-wide text-sm font-bold">Мой профиль</h2>
-          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Закрыть">
+          <h2 className="font-display text-sm font-bold">My profile</h2>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close">
             ✕
           </button>
         </div>
@@ -85,7 +85,7 @@ export function ProfileDialog({ user, onClose }: { user: User; onClose: () => vo
         <form onSubmit={saveProfile} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-xs text-muted">Имя</span>
+              <span className="mb-1 block text-xs text-muted">First name</span>
               <input
                 required
                 value={firstName}
@@ -94,7 +94,7 @@ export function ProfileDialog({ user, onClose }: { user: User; onClose: () => vo
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-muted">Фамилия</span>
+              <span className="mb-1 block text-xs text-muted">Last name</span>
               <input
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
@@ -113,25 +113,25 @@ export function ProfileDialog({ user, onClose }: { user: User; onClose: () => vo
             />
           </label>
           {profileMsg && (
-            <p className={`text-xs ${profileMsg.ok ? "text-muted" : "text-mts"}`}>
+            <p className={`text-xs ${profileMsg.ok ? "text-muted" : "text-accent"}`}>
               {profileMsg.text}
             </p>
           )}
           <button
             type="submit"
             disabled={profileBusy}
-            className="w-full rounded bg-mts px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="w-full rounded bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
           >
-            {profileBusy ? "Сохраняем…" : "Сохранить"}
+            {profileBusy ? "Saving…" : "Save"}
           </button>
         </form>
 
         <hr className="my-5 border-line" />
 
         <form onSubmit={savePassword} className="space-y-3">
-          <h3 className="text-sm font-medium">Смена пароля</h3>
+          <h3 className="text-sm font-medium">Change password</h3>
           <label className="block">
-            <span className="mb-1 block text-xs text-muted">Текущий пароль</span>
+            <span className="mb-1 block text-xs text-muted">Current password</span>
             <input
               type="password"
               required
@@ -142,7 +142,7 @@ export function ProfileDialog({ user, onClose }: { user: User; onClose: () => vo
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs text-muted">Новый пароль (не короче 8 символов)</span>
+            <span className="mb-1 block text-xs text-muted">New password (at least 8 characters)</span>
             <input
               type="password"
               required
@@ -154,14 +154,14 @@ export function ProfileDialog({ user, onClose }: { user: User; onClose: () => vo
             />
           </label>
           {pwMsg && (
-            <p className={`text-xs ${pwMsg.ok ? "text-muted" : "text-mts"}`}>{pwMsg.text}</p>
+            <p className={`text-xs ${pwMsg.ok ? "text-muted" : "text-accent"}`}>{pwMsg.text}</p>
           )}
           <button
             type="submit"
             disabled={pwBusy}
             className="w-full rounded border border-line px-3 py-2 text-sm font-medium hover:bg-page disabled:opacity-50"
           >
-            {pwBusy ? "Меняем…" : "Изменить пароль"}
+            {pwBusy ? "Changing…" : "Change password"}
           </button>
         </form>
       </div>

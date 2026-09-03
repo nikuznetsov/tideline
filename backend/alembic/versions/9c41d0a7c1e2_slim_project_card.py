@@ -1,4 +1,4 @@
-"""slim project card: детали проекта живут в Confluence
+"""slim project card: project details live in the external wiki
 
 Revision ID: 9c41d0a7c1e2
 Revises: 822f559bdb80

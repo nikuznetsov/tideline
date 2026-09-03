@@ -1,4 +1,4 @@
-# ---- стадия 1: сборка фронтенда ----
+# ---- stage 1: frontend build ----
 FROM node:22-slim AS frontend
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
@@ -6,12 +6,12 @@ RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-# ---- стадия 2: python-приложение ----
+# ---- stage 2: python application ----
 FROM python:3.12-slim AS app
 WORKDIR /srv
 
-# pg_dump/psql для бэкапов и restore (клиент 18 — под Railway Postgres 18;
-# pg_dump обязан быть не старше сервера), age для шифрования
+# pg_dump/psql for backups and restore (client 18 to match Postgres 18;
+# pg_dump must not be older than the server), age for encryption
 RUN apt-get update \
     && apt-get install -y --no-install-recommends age curl ca-certificates gnupg \
     && install -d /usr/share/postgresql-common/pgdg \
@@ -36,5 +36,5 @@ WORKDIR /srv/backend
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
-# release-фаза Railway: бэкап, затем миграции (см. railway.toml)
+# Railway release phase: backup, then migrations (see railway.toml)
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

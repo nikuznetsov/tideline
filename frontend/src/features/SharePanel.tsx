@@ -33,24 +33,24 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
   return (
     <aside className="fixed inset-y-0 right-0 z-40 flex w-[380px] max-w-full flex-col border-l border-line bg-surface shadow-2xl">
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="font-wide text-sm font-bold">Read-only ссылки</h2>
+        <h2 className="font-display text-sm font-bold">Read-only links</h2>
         <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
         <p className="mb-3 text-xs text-muted">
-          Ссылка открывает таймлайн и реестр проектов в режиме чтения, без
-          логина.
+          The link opens the timeline and the project list in read-only mode, no
+          login required.
         </p>
         <button
           onClick={() => create.mutate()}
           disabled={create.isPending}
           className="mb-4 w-full rounded bg-ink py-2 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-50"
         >
-          Создать ссылку
+          Create link
         </button>
         {created && (
           <div className="mb-4 rounded border border-line bg-page p-3">
-            <div className="mb-1 text-xs font-medium">Новая ссылка</div>
+            <div className="mb-1 text-xs font-medium">New link</div>
             <div className="break-all font-nums text-xs">{`${window.location.origin}/s/${created.token}`}</div>
             <CopyButton
               text={`${window.location.origin}/s/${created.token}`}
@@ -67,9 +67,9 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
               <div>
                 <div className="font-nums text-xs">{l.token_prefix}…</div>
                 <div className="text-[10px] text-muted">
-                  создана {new Date(l.created_at).toLocaleDateString("ru")}
+                  created {new Date(l.created_at).toLocaleDateString("en-GB")}
                   {l.last_accessed_at &&
-                    ` · открывалась ${new Date(l.last_accessed_at).toLocaleDateString("ru")}`}
+                    ` · last opened ${new Date(l.last_accessed_at).toLocaleDateString("en-GB")}`}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -81,29 +81,29 @@ export function SharePanel({ onClose }: { onClose: () => void }) {
                 )}
                 <button
                   onClick={() => setRevoking(l)}
-                  className="text-xs text-mts underline"
+                  className="text-xs text-accent underline"
                 >
-                  Отозвать
+                  Revoke
                 </button>
               </div>
             </div>
           ))}
           {links.isSuccess && active.length === 0 && !created && (
-            <p className="text-xs text-muted">Активных ссылок нет.</p>
+            <p className="text-xs text-muted">No active links.</p>
           )}
         </div>
       </div>
 
       {revoking && (
         <ConfirmDialog
-          title="Отозвать ссылку"
+          title="Revoke link"
           message={
             <>
-              Отозвать ссылку <b className="font-nums">{revoking.token_prefix}…</b>?
-              Все, у кого она есть, потеряют доступ к просмотру.
+              Revoke link <b className="font-nums">{revoking.token_prefix}…</b>?
+              Everyone who has it will lose view access.
             </>
           }
-          confirmLabel="Отозвать"
+          confirmLabel="Revoke"
           onConfirm={() => revoke.mutate(revoking.id)}
           onClose={() => setRevoking(null)}
         />

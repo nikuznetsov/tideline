@@ -11,15 +11,15 @@ class Settings(BaseSettings):
     admin_email: str = "admin@example.com"
     admin_password: str = "admin"
     app_base_url: str = "http://localhost:8000"
-    workspace_slug: str = "xops"
-    workspace_name: str = "xOps"
-    tz: str = "Europe/Moscow"
+    workspace_slug: str = "main"
+    workspace_name: str = "Main"
+    tz: str = "UTC"
     log_level: str = "INFO"
     sentry_dsn: str | None = None
 
     session_max_age_seconds: int = 60 * 60 * 24 * 14
     static_dir: str = "static"
-    # если задан, /metrics требует Bearer-токен (иначе метрики публичны)
+    # when set, /metrics requires a Bearer token (otherwise metrics are public)
     metrics_token: str | None = None
 
     backup_dir: str | None = None
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     @property
     def sqlalchemy_url(self) -> str:
         url = self.database_url
-        # Railway выдаёт postgres:// — SQLAlchemy async требует postgresql+asyncpg://
+        # some hosts hand out postgres:// — SQLAlchemy async requires postgresql+asyncpg://
         if url.startswith("postgres://"):
             url = "postgresql+asyncpg://" + url[len("postgres://"):]
         elif url.startswith("postgresql://"):

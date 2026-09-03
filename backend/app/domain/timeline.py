@@ -1,4 +1,4 @@
-"""Агрегированный ответ для сетки таймлайна — одним набором запросов, без N+1."""
+"""Aggregated response for the timeline grid — one set of queries, no N+1."""
 
 import uuid
 from datetime import date, timedelta
@@ -50,7 +50,7 @@ async def build_timeline(
         .scalars()
         .all()
     )
-    # в ответ идут проекты активные (для добавления) + встречающиеся в аллокациях
+    # the response includes active projects (for adding) + those present in allocations
     visible_projects = [
         p for p in projects if p.lifecycle != "finished" or p.id in project_ids
     ]
@@ -97,7 +97,7 @@ async def build_timeline(
         for d, v in sorted(day_totals.items())
     ]
 
-    # недели окна: закрыта ли (fact snapshot), текущая/прошлая/будущая
+    # weeks of the window: closed or not (fact snapshot), current/past/future
     week_starts: list[date] = []
     w = week_start_of(date_from)
     while w <= date_to:
@@ -135,7 +135,7 @@ async def build_timeline(
     total_alloc = sum((t.allocated for t in totals), Decimal(0))
     utilization = float(min(total_alloc / total_cap, Decimal(2)) * 100) if total_cap else 0.0
 
-    # напоминание: прошлая неделя не закрыта, а уже вторник или позже
+    # reminder: last week is not closed and it is already Tuesday or later
     reminder = None
     prev_week = current_week - timedelta(days=7)
     if today.weekday() >= 1:

@@ -9,7 +9,7 @@ from app.domain.capacity import (
 
 
 async def test_free_capacity_basic(db, workspace, team, monday):
-    """Свободная ёмкость: полный день минус аллокация."""
+    """Free capacity: a full day minus the allocation."""
     member = team["members"][0]
     db.add(
         Allocation(
@@ -26,7 +26,7 @@ async def test_free_capacity_basic(db, workspace, team, monday):
     )
     candidate = next(c for c in result.candidates if c.member.id == member.id)
     assert candidate.free_total == Decimal("0.25")
-    # два других свободны полностью
+    # the other two are fully free
     assert result.total_free == Decimal("2.25")
     assert result.enough
 
@@ -34,7 +34,7 @@ async def test_free_capacity_basic(db, workspace, team, monday):
 async def test_capacity_excludes_weekends_holidays_absences(db, workspace, team, monday):
     member = team["members"][0]
     tuesday = monday + timedelta(days=1)
-    db.add(NonWorkingDay(workspace_id=workspace.id, day=tuesday, title="Праздник"))
+    db.add(NonWorkingDay(workspace_id=workspace.id, day=tuesday, title="Holiday"))
     db.add(
         Absence(
             workspace_id=workspace.id,
@@ -45,7 +45,7 @@ async def test_capacity_excludes_weekends_holidays_absences(db, workspace, team,
         )
     )
     await db.commit()
-    # окно пн-вс: рабочих дней 5, минус праздник = 4; у Ани минус отпуск в пн = 3
+    # Mon-Sun window: 5 working days, minus the holiday = 4; Anna also minus vacation on Mon = 3
     sunday = monday + timedelta(days=6)
     result = await search_capacity(
         db, workspace.id, monday, sunday, Decimal("100"), today=monday
@@ -86,7 +86,7 @@ async def test_overload_free_is_zero_not_negative(db, workspace, team, monday):
 
 
 async def test_min_daily_filters_fragments(db, workspace, team, monday):
-    """Свободно 0.25 в день, но минимум 0.5 — кандидат не считается."""
+    """0.25 free per day but the minimum is 0.5 — not counted as a candidate."""
     member = team["members"][0]
     db.add(
         Allocation(
@@ -115,7 +115,7 @@ async def test_tags_filter(db, workspace, team, monday):
         db, workspace.id, monday, monday, Decimal("1"), tags=["ml"], today=monday
     )
     assert len(result.candidates) == 1
-    assert result.candidates[0].member.name == "Аня"
+    assert result.candidates[0].member.name == "Anna"
 
 
 async def test_plan_horizon_warning(db, workspace, team, monday):

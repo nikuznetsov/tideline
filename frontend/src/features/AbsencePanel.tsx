@@ -5,10 +5,10 @@ import type { AbsenceItem, Member, NonWorkingDayItem } from "../api/types";
 import { fromISO, rangeLabel, todayISO } from "../lib/dates";
 
 const KIND_LABEL: Record<string, string> = {
-  vacation: "Отпуск",
-  sick: "Болезнь",
-  holiday: "Отгул",
-  other: "Другое",
+  vacation: "Vacation",
+  sick: "Sick leave",
+  holiday: "Day off",
+  other: "Other",
 };
 
 export function AbsencePanel({ onClose }: { onClose: () => void }) {
@@ -60,7 +60,7 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
         setConflict(e.message);
       } else {
         setConflict(null);
-        setError(e instanceof ApiError ? e.message : "Не удалось сохранить");
+        setError(e instanceof ApiError ? e.message : "Could not save");
       }
     },
   });
@@ -76,7 +76,7 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
   function submit(e: FormEvent, clearAllocations = false) {
     e.preventDefault();
     if (!memberId) {
-      setError("Выберите сотрудника");
+      setError("Select a team member");
       return;
     }
     create.mutate({
@@ -96,16 +96,16 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
     <aside
       className="fixed inset-y-0 right-0 z-40 flex w-[400px] max-w-full flex-col border-l border-line bg-surface shadow-2xl"
       role="dialog"
-      aria-label="Отпуска и отсутствия"
+      aria-label="Absences"
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="font-wide text-sm font-bold">Отпуска и отсутствия</h2>
+        <h2 className="font-display text-sm font-bold">Absences</h2>
         <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
       </div>
 
       <form onSubmit={submit} className="grid grid-cols-2 gap-3 border-b border-line px-4 py-3">
         <label className="col-span-2 text-xs text-muted">
-          Сотрудник
+          Team member
           <select
             value={memberId}
             onChange={(e) => {
@@ -115,14 +115,14 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
             className="mt-1 w-full rounded border border-line bg-page px-2 py-1.5 text-sm text-ink"
             required
           >
-            <option value="">— выберите —</option>
+            <option value="">— select —</option>
             {(members.data ?? []).map((m) => (
               <option key={m.id} value={m.id}>{m.name}</option>
             ))}
           </select>
         </label>
         <label className="text-xs text-muted">
-          С
+          From
           <input
             type="date"
             value={from}
@@ -136,7 +136,7 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="text-xs text-muted">
-          По (включительно)
+          To (inclusive)
           <input
             type="date"
             value={to}
@@ -150,7 +150,7 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="text-xs text-muted">
-          Тип
+          Type
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value)}
@@ -162,35 +162,35 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
           </select>
         </label>
         <label className="text-xs text-muted">
-          Заметка
+          Note
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="необязательно"
+            placeholder="optional"
             className="mt-1 w-full rounded border border-line bg-page px-2 py-1.5 text-sm text-ink"
           />
         </label>
-        {error && <p className="col-span-2 text-xs text-mts">{error}</p>}
+        {error && <p className="col-span-2 text-xs text-accent">{error}</p>}
         {conflict && (
-          <div className="col-span-2 rounded border border-mts/40 bg-[var(--load-over-bg)] p-3">
+          <div className="col-span-2 rounded border border-accent/40 bg-[var(--load-over-bg)] p-3">
             <p className="text-xs text-[var(--load-over-ink)]">
-              {conflict} Очистить эти дни и оформить отсутствие?
+              {conflict} Clear these days and add the absence?
             </p>
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
                 onClick={(e) => submit(e, true)}
                 disabled={create.isPending}
-                className="rounded bg-mts px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
               >
-                Очистить и добавить
+                Clear and add
               </button>
               <button
                 type="button"
                 onClick={() => setConflict(null)}
                 className="rounded border border-line bg-surface px-3 py-1.5 text-xs"
               >
-                Отмена
+                Cancel
               </button>
             </div>
           </div>
@@ -200,23 +200,23 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
           disabled={create.isPending}
           className="col-span-2 rounded bg-ink py-2 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-50"
         >
-          Добавить отсутствие
+          Add absence
         </button>
       </form>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
-        {absences.isLoading && <p className="text-sm text-muted">Загрузка…</p>}
+        {absences.isLoading && <p className="text-sm text-muted">Loading…</p>}
         {absences.isSuccess && upcoming.length === 0 && past.length === 0 && (
           <p className="text-sm text-muted">
-            Отсутствий нет. Добавьте отпуск формой выше — дни автоматически
-            выпадут из ёмкости на таймлайне и в поиске ресурса.
+            No absences. Add a vacation with the form above — the days will automatically
+            drop out of capacity on the timeline and in the capacity search.
           </p>
         )}
 
         {upcoming.length > 0 && (
           <div className="mb-4">
             <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted">
-              Текущие и будущие
+              Current and upcoming
             </div>
             <div className="space-y-1.5">
               {upcoming.map((a) => (
@@ -234,7 +234,7 @@ export function AbsencePanel({ onClose }: { onClose: () => void }) {
         {past.length > 0 && (
           <div>
             <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted">
-              Прошедшие
+              Past
             </div>
             <div className="space-y-1.5 opacity-60">
               {past.slice(0, 15).map((a) => (
@@ -281,7 +281,7 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
       refresh();
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : "Не удалось сохранить"),
+      setError(e instanceof ApiError ? e.message : "Could not save"),
   });
   const remove = useMutation({
     mutationFn: (id: string) => wapi.delete(`/non-working-days/${id}`),
@@ -293,10 +293,10 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
   return (
     <div className="mt-6 border-t border-line pt-4">
       <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted">
-        Производственный календарь
+        Company calendar
       </div>
       <p className="mb-2 text-xs text-muted">
-        Праздники и переносы для всей команды: день выпадает из ёмкости у всех.
+        Holidays and moved working days for the whole team: the day drops out of everyone's capacity.
       </p>
       <form
         onSubmit={(e) => {
@@ -315,7 +315,7 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Название (напр. День России)"
+          placeholder="Name (e.g. New Year's Day)"
           className="flex-1 rounded border border-line bg-page px-2 py-1.5 text-sm text-ink"
         />
         <button
@@ -326,10 +326,10 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
           +
         </button>
       </form>
-      {error && <p className="mb-2 text-xs text-mts">{error}</p>}
+      {error && <p className="mb-2 text-xs text-accent">{error}</p>}
       <div className="space-y-1">
         {days.isSuccess && upcoming.length === 0 && (
-          <p className="text-xs text-muted">Будущих нерабочих дней нет.</p>
+          <p className="text-xs text-muted">No upcoming non-working days.</p>
         )}
         {upcoming.map((d) => (
           <div
@@ -337,14 +337,14 @@ function NonWorkingDays({ onChanged }: { onChanged: () => void }) {
             className="flex items-center justify-between rounded border border-line px-3 py-1.5 text-sm"
           >
             <span className="font-nums">
-              {fromISO(d.day).toLocaleDateString("ru")}{" "}
+              {fromISO(d.day).toLocaleDateString("en-GB")}{" "}
               <span className="text-muted">{d.title ?? ""}</span>
             </span>
             <button
               onClick={() => remove.mutate(d.id)}
-              className="text-xs text-mts underline"
+              className="text-xs text-accent underline"
             >
-              Убрать
+              Remove
             </button>
           </div>
         ))}
@@ -378,10 +378,10 @@ function AbsenceRow({
       </div>
       <button
         onClick={onDelete}
-        className="text-xs text-mts underline"
-        title="Снять отсутствие — дни вернутся в ёмкость"
+        className="text-xs text-accent underline"
+        title="Remove absence — the days return to capacity"
       >
-        Снять
+        Remove
       </button>
     </div>
   );

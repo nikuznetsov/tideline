@@ -1,4 +1,4 @@
-/** Минимальный безопасный markdown-рендер: заголовки, списки, ссылки, код, жирный/курсив. */
+/** Minimal safe markdown renderer: headings, lists, links, code, bold/italic. */
 import { Fragment, ReactNode } from "react";
 
 function inline(text: string, keyBase: string): ReactNode[] {

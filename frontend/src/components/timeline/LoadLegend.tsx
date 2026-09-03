@@ -5,7 +5,7 @@ import {
   categoryCellClass,
 } from "../../lib/categories";
 
-/** Легенда категорий загрузки + обозначение перегруза. */
+/** Legend of load categories + the overload marker. */
 export function LoadLegend() {
   return (
     <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
@@ -28,7 +28,7 @@ export function LoadLegend() {
         >
           ⚠
         </span>
-        Перегруз
+        Overload
       </span>
     </div>
   );

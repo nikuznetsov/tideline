@@ -5,82 +5,82 @@ async function login(page: Page) {
   await page.fill("input[type=email]", "admin@example.com");
   await page.fill("input[type=password]", "admin");
   await page.click("button[type=submit]");
-  await expect(page.getByRole("grid", { name: "Таймлайн загрузки" })).toBeVisible();
+  await expect(page.getByRole("grid", { name: "Load timeline" })).toBeVisible();
 }
 
 test.describe.configure({ mode: "serial" });
 
-test("S1: логин, разворот сотрудника и ввод загрузки с клавиатуры", async ({ page }) => {
+test("S1: log in, expand a team member and enter load from the keyboard", async ({ page }) => {
   await login(page);
-  await page.getByTitle("Развернуть по проектам").first().click();
+  await page.getByTitle("Expand by project").first().click();
 
   const cells = page.getByRole("gridcell");
   await expect(cells.first()).toBeVisible();
   await cells.first().click();
   await page.keyboard.press("1");
   await expect(cells.first()).toHaveText("█");
-  await expect(cells.first()).toHaveAccessibleName("Весь день");
-  await expect(page.getByText("Сохранено")).toBeVisible();
+  await expect(cells.first()).toHaveAccessibleName("Full day");
+  await expect(page.getByText("Saved")).toBeVisible();
 
-  // пикер категорий: Enter открывает, выбор ставит категорию
+  // category picker: Enter opens it, choosing sets the category
   await cells.first().click();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("listbox", { name: "Категория загрузки" })).toBeVisible();
-  await page.getByRole("option", { name: /Наполовину/ }).click();
+  await expect(page.getByRole("listbox", { name: "Load category" })).toBeVisible();
+  await page.getByRole("option", { name: /Half day/ }).click();
   await expect(cells.first()).toHaveText("▄");
 
-  // очистка нулём
+  // clear with zero
   await cells.first().click();
   await page.keyboard.press("0");
   await expect(cells.first()).toHaveText(/^$|⚠/);
 });
 
-test("S2: панель «Хватит ли людей?» отвечает вердиктом и кандидатами", async ({ page }) => {
+test("S2: the “Enough people?” panel answers with a verdict and candidates", async ({ page }) => {
   await login(page);
-  await page.getByRole("button", { name: "Хватит ли людей?" }).click();
-  await page.getByRole("button", { name: "Проверить" }).click();
-  await expect(page.getByText(/Хватает|Не хватает/)).toBeVisible();
-  await expect(page.getByText(/Свободно .* из требуемых/)).toBeVisible();
+  await page.getByRole("button", { name: "Enough people?" }).click();
+  await page.getByRole("button", { name: "Check" }).click();
+  await expect(page.getByText(/^Enough$|^Not enough/)).toBeVisible();
+  await expect(page.getByText(/free of .* required/)).toBeVisible();
 });
 
-test("S3: закрытие недели создаёт снимок и откатывается", async ({ page }) => {
+test("S3: closing a week creates a snapshot and can be reopened", async ({ page }) => {
   await login(page);
-  const closeBtn = page.getByRole("button", { name: /Закрыть неделю/ });
+  const closeBtn = page.getByRole("button", { name: /Close week/ });
   await expect(closeBtn).toBeVisible();
   await closeBtn.click();
-  await expect(page.getByText("Неделя закрыта, снимок сохранён.")).toBeVisible();
+  await expect(page.getByText("Week closed, snapshot saved.")).toBeVisible();
 
-  const undoBtn = page.getByRole("button", { name: "Откатить закрытие" });
+  const undoBtn = page.getByRole("button", { name: "Reopen week" });
   await expect(undoBtn).toBeVisible();
   await undoBtn.click();
-  await expect(page.getByRole("button", { name: /Закрыть неделю/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Close week/ })).toBeVisible();
 });
 
-test("Итерация 2: регистрация, своё пространство, роль по умолчанию", async ({ page, context }) => {
-  // лендинг доступен без логина
+test("Iteration 2: sign-up, own workspace, default role", async ({ page, context }) => {
+  // the landing page is available without login
   await page.goto("/");
-  await expect(page.getByText("Кто чем занят")).toBeVisible();
+  await expect(page.getByText("Who is working on what")).toBeVisible();
 
-  // регистрация нового аккаунта
-  await page.getByRole("link", { name: "Создать" }).click();
-  await page.getByLabel(/Имя/).first().fill("Ева");
-  await page.getByLabel(/Фамилия/).fill("Тестова");
+  // sign up a new account
+  await page.getByRole("link", { name: "Create one" }).click();
+  await page.getByLabel(/First name/).first().fill("Eve");
+  await page.getByLabel(/Last name/).fill("Tester");
   await page.fill("input[type=email]", `eva-${Date.now()}@example.com`);
   await page.fill("input[type=password]", "password-123");
-  await page.getByRole("button", { name: "Создать аккаунт" }).click();
+  await page.getByRole("button", { name: "Create account" }).click();
 
-  // доступов нет — страница пространств с формой создания
-  await expect(page.getByText("У вас пока нет доступов")).toBeVisible();
-  await page.getByPlaceholder("Команда ML-платформы").fill("Тестовая команда");
-  await page.getByRole("button", { name: "Создать", exact: true }).click();
-  await expect(page).toHaveURL(/\/w\/testovaya-komanda\//);
-  await expect(page.getByText("В пространстве пока нет сотрудников")).toBeVisible();
+  // no access yet — the workspaces page with the create form
+  await expect(page.getByText("You have no access yet")).toBeVisible();
+  await page.getByPlaceholder("ML Platform team").fill("Test team");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/w\/test-team\//);
+  await expect(page.getByText("The workspace has no team members yet")).toBeVisible();
 });
 
-test("S4: read-only ссылка работает и умирает после отзыва", async ({ page, context }) => {
+test("S4: a read-only link works and dies after revocation", async ({ page, context }) => {
   await login(page);
-  await page.getByRole("button", { name: "Поделиться" }).click();
-  await page.getByRole("button", { name: "Создать ссылку" }).click();
+  await page.getByRole("button", { name: "Share" }).click();
+  await page.getByRole("button", { name: "Create link" }).click();
 
   const urlText = await page.locator(".break-all").first().textContent();
   expect(urlText).toBeTruthy();
@@ -88,15 +88,15 @@ test("S4: read-only ссылка работает и умирает после �
 
   const viewer = await context.newPage();
   await viewer.goto(shareUrl);
-  await expect(viewer.getByText("только чтение")).toBeVisible();
-  // сетка есть, а редактирующих кнопок нет
-  await expect(viewer.getByRole("grid", { name: "Таймлайн загрузки" })).toBeVisible();
-  await expect(viewer.getByRole("button", { name: "Хватит ли людей?" })).toHaveCount(0);
+  await expect(viewer.getByText("Read only")).toBeVisible();
+  // the grid is there, but no editing buttons
+  await expect(viewer.getByRole("grid", { name: "Load timeline" })).toBeVisible();
+  await expect(viewer.getByRole("button", { name: "Enough people?" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Отозвать" }).first().click();
-  // отзыв идёт через стилизованный диалог подтверждения
-  await page.getByRole("dialog").getByRole("button", { name: "Отозвать" }).click();
+  await page.getByRole("button", { name: "Revoke" }).first().click();
+  // revocation goes through the styled confirmation dialog
+  await page.getByRole("dialog").getByRole("button", { name: "Revoke" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await viewer.reload();
-  await expect(viewer.getByText("Ссылка не действует")).toBeVisible();
+  await expect(viewer.getByText("This link is no longer valid")).toBeVisible();
 });

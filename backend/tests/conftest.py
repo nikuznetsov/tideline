@@ -47,11 +47,11 @@ async def db(engine):
 
 @pytest_asyncio.fixture
 async def workspace(db):
-    ws = Workspace(slug="xops", name="xOps")
+    ws = Workspace(slug="acme", name="Acme")
     db.add(ws)
     user = AppUser(
         email=TEST_EMAIL,
-        name="Тимлид",
+        name="Team lead",
         password_hash=hash_password(TEST_PASSWORD),
         is_superuser=True,
     )
@@ -64,7 +64,7 @@ async def workspace(db):
 
 @pytest_asyncio.fixture
 async def other_workspace(db):
-    """Чужое пространство — для теста изоляции."""
+    """A foreign workspace — for the isolation test."""
     ws = Workspace(slug="other", name="Other")
     db.add(ws)
     await db.commit()
@@ -98,7 +98,7 @@ async def client(transport):
 
 @pytest_asyncio.fixture
 async def client2(transport):
-    """Второй клиент с независимыми cookie — для сценариев с двумя пользователями."""
+    """A second client with independent cookies — for two-user scenarios."""
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
 
@@ -112,18 +112,18 @@ async def auth_client(client):
     return client
 
 
-# ---------- данные для доменных тестов ----------
+# ---------- data for domain tests ----------
 
 @pytest_asyncio.fixture
 async def team(db, workspace):
     members = []
-    for i, name in enumerate(["Аня", "Борис", "Вера"]):
+    for i, name in enumerate(["Anna", "Boris", "Vera"]):
         member = Member(workspace_id=workspace.id, name=name, sort_order=i, tags=["ml"] if i == 0 else [])
         db.add(member)
         members.append(member)
-    project = Project(workspace_id=workspace.id, code="TEST", name="Тестовый проект")
+    project = Project(workspace_id=workspace.id, code="TEST", name="Test project")
     finished = Project(
-        workspace_id=workspace.id, code="OLD", name="Старый", lifecycle="finished"
+        workspace_id=workspace.id, code="OLD", name="Old", lifecycle="finished"
     )
     db.add(project)
     db.add(finished)

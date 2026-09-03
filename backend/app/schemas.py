@@ -10,7 +10,7 @@ LoadCategory = Literal["background", "half", "most", "full"]
 
 def validate_capacity(v: Decimal) -> Decimal:
     if not (Decimal("0") < v <= Decimal("1")):
-        raise ValueError("Ёмкость в день — доля из диапазона (0, 1]")
+        raise ValueError("Daily capacity must be a fraction in the range (0, 1]")
     return v
 
 
@@ -83,8 +83,8 @@ class InviteLinkOut(BaseModel):
     revoked_at: datetime | None
     created_at: datetime
     last_used_at: datetime | None
-    # полная ссылка для повторного копирования; None у ссылок, созданных
-    # до того, как токен стал храниться открыто
+    # full link for copying again; None for links created before
+    # the token was stored in plain text
     url: str | None = None
 
 
@@ -108,7 +108,7 @@ class MemberOut(BaseModel):
 
 
 class MemberCreate(BaseModel):
-    """Сотрудник — это участник пространства: создаётся из аккаунта."""
+    """A team member is a workspace participant: created from an account."""
 
     user_id: uuid.UUID
     role_title: str | None = None
@@ -148,11 +148,11 @@ class AbsenceCreate(BaseModel):
     date_to: date
     kind: Literal["vacation", "sick", "holiday", "other"] = "vacation"
     note: str | None = None
-    # подтверждение: удалить аллокации, попавшие в диапазон отсутствия
+    # confirmation: delete allocations that fall within the absence range
     clear_allocations: bool = False
 
 
-# ---------- производственный календарь ----------
+# ---------- working calendar ----------
 
 class NonWorkingDayOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -190,7 +190,7 @@ class AllocationBulkSet(BaseModel):
     project_id: uuid.UUID
     date_from: date
     date_to: date
-    category: LoadCategory | None = None  # None => очистить диапазон
+    category: LoadCategory | None = None  # None => clear the range
 
 
 class AllocationBulkRequest(BaseModel):
@@ -330,7 +330,7 @@ class ProjectUpdateOut(BaseModel):
 class ProjectUpdateIn(BaseModel):
     body: str
     health_after: Literal["green", "amber", "red"] | None = None
-    # дата апдейта; по умолчанию — сегодня
+    # update date; defaults to today
     on_date: date | None = None
 
 
@@ -404,8 +404,8 @@ class ShareLinkOut(BaseModel):
     revoked_at: datetime | None
     created_at: datetime
     last_accessed_at: datetime | None
-    # полная ссылка для повторного копирования; None у ссылок, созданных
-    # до того, как токен стал храниться открыто
+    # full link for copying again; None for links created before
+    # the token was stored in plain text
     url: str | None = None
 
 

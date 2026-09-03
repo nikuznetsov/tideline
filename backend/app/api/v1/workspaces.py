@@ -47,7 +47,7 @@ router = APIRouter(tags=["workspaces"])
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,31}$")
 
 
-# ---------- мои пространства ----------
+# ---------- my workspaces ----------
 
 @router.get("/workspaces", response_model=list[WorkspaceOut])
 async def my_workspaces(
@@ -83,10 +83,10 @@ async def create_workspace(
     slug = body.slug.strip().lower()
     if not SLUG_RE.match(slug):
         raise HTTPException(
-            422, "Слаг: латиница, цифры и дефис, от 2 до 32 символов"
+            422, "Slug: Latin letters, digits and hyphens, 2 to 32 characters"
         )
-    # названия могут совпадать, а адрес — уникальный: если занят, добавляем
-    # случайный суффикс (первому достаётся чистый слаг)
+    # names may repeat but the slug is unique: if taken, append a random
+    # suffix (the first one gets the clean slug)
     final = slug
     while (
         await db.execute(select(Workspace.id).where(Workspace.slug == final))
@@ -119,7 +119,7 @@ async def patch_workspace(
         ws.name = body.name.strip() or ws.name
     if body.default_member_role is not None:
         if body.default_member_role not in ("viewer", "editor"):
-            raise HTTPException(422, "Роль по умолчанию: viewer или editor")
+            raise HTTPException(422, "Default role must be viewer or editor")
         ws.default_member_role = body.default_member_role
     record_audit(db, ws.id, user.id, "workspace", ws.id, "update",
                  before, {"name": ws.name, "default_member_role": ws.default_member_role})
@@ -136,11 +136,11 @@ async def delete_workspace(
     ws: Workspace = Depends(get_workspace_owner),
     _user: AppUser = Depends(get_current_user),
 ):
-    """Полное удаление пространства со всеми данными (только владелец).
+    """Full deletion of a workspace with all its data (owner only).
 
-    Порядок важен: сначала таблицы, ссылающиеся на member/project,
-    затем остальные данные пространства, последним — само пространство.
-    Аудит не пишем — журнал пространства удаляется вместе с ним.
+    Order matters: first the tables referencing member/project, then the
+    rest of the workspace data, and the workspace itself last.
+    No audit entry — the workspace's log is deleted along with it.
     """
     for model in (
         Allocation, Absence, Milestone, ProjectUpdate,
@@ -153,7 +153,7 @@ async def delete_workspace(
     return {"ok": True}
 
 
-# ---------- участники ----------
+# ---------- participants ----------
 
 @router.get("/w/{workspace_slug}/participants", response_model=list[ParticipantOut])
 async def participants(
@@ -193,7 +193,7 @@ async def change_role(
     actor: AppUser = Depends(get_current_user),
 ):
     if body.role not in ("owner", "editor", "viewer"):
-        raise HTTPException(422, "Роль: owner, editor или viewer")
+        raise HTTPException(422, "Role must be owner, editor or viewer")
     membership = (
         await db.execute(
             select(Membership).where(
@@ -202,13 +202,13 @@ async def change_role(
         )
     ).scalar_one_or_none()
     if not membership:
-        raise HTTPException(404, "Участник не найден")
+        raise HTTPException(404, "Participant not found")
     if (
         membership.role == "owner"
         and body.role != "owner"
         and await _owners_count(db, ws.id) == 1
     ):
-        raise HTTPException(422, "Нельзя понизить последнего владельца")
+        raise HTTPException(422, "Cannot demote the last owner")
     before = membership.role
     membership.role = body.role
     record_audit(db, ws.id, actor.id, "membership", membership.id, "change_role",
@@ -235,14 +235,14 @@ async def remove_participant(
         )
     ).scalar_one_or_none()
     if not membership:
-        raise HTTPException(404, "Участник не найден")
+        raise HTTPException(404, "Participant not found")
     if membership.role == "owner" and await _owners_count(db, ws.id) == 1:
-        raise HTTPException(422, "Нельзя удалить последнего владельца")
+        raise HTTPException(422, "Cannot remove the last owner")
     record_audit(db, ws.id, actor.id, "membership", membership.id, "remove",
                  {"user_id": str(user_id), "role": membership.role}, None)
     await db.delete(membership)
 
-    # команда — подмножество участников: без доступа нет и строки на таймлайне
+    # the team is a subset of participants: no access means no timeline row either
     from app.db.models import Member
 
     linked = (
@@ -263,7 +263,7 @@ async def remove_participant(
     return {"ok": True}
 
 
-# ---------- инвайт-ссылки ----------
+# ---------- invite links ----------
 
 @router.get("/w/{workspace_slug}/invite-links", response_model=list[InviteLinkOut])
 async def list_invite_links(
@@ -331,7 +331,7 @@ async def revoke_invite_link(
         )
     ).scalar_one_or_none()
     if not link:
-        raise HTTPException(404, "Ссылка не найдена")
+        raise HTTPException(404, "Link not found")
     link.revoked_at = datetime.now(timezone.utc)
     record_audit(db, ws.id, user.id, "invite_link", link.id, "revoke",
                  {"token_prefix": link.token_prefix}, None)
@@ -339,7 +339,7 @@ async def revoke_invite_link(
     return {"ok": True}
 
 
-# ---------- вступление по ссылке ----------
+# ---------- joining via link ----------
 
 async def _valid_invite(db: AsyncSession, token: str) -> InviteLink:
     link = (
@@ -348,13 +348,13 @@ async def _valid_invite(db: AsyncSession, token: str) -> InviteLink:
         )
     ).scalar_one_or_none()
     if not link or link.revoked_at is not None:
-        raise HTTPException(404, "Приглашение не найдено или отозвано")
+        raise HTTPException(404, "Invite not found or revoked")
     return link
 
 
 @router.get("/join/{token}")
 async def join_info(token: str, request: Request, db: AsyncSession = Depends(get_db)):
-    """Публичная информация для страницы вступления: куда приглашают."""
+    """Public info for the join page: where the user is being invited."""
     enforce(share_limiter, request)
     link = await _valid_invite(db, token)
     ws = await db.get(Workspace, link.workspace_id)

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Деплой/передеплой на VM: git pull -> build -> migrate -> перезапуск app.
-# Запускать из ops/mws: ./deploy.sh
+# Deploy/redeploy on the VM: git pull -> build -> migrate -> restart app.
+# Run from ops/compose: ./deploy.sh
 set -eu
 
 cd "$(dirname "$0")"

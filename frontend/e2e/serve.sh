@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Поднимает бэкенд для E2E: чистая sqlite, миграции, сид, собранная статика.
+# Starts the backend for E2E: fresh sqlite, migrations, seed, built static assets.
 set -euo pipefail
 cd "$(dirname "$0")/../../backend"
 

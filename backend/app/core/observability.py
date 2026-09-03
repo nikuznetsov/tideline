@@ -20,11 +20,11 @@ REQUEST_LATENCY = Histogram(
     "Latency by endpoint",
     ["method", "path", "status"],
 )
-ALLOCATIONS_TOTAL = Gauge("allocations_total", "Число аллокаций в БД")
+ALLOCATIONS_TOTAL = Gauge("allocations_total", "Number of allocations in the DB")
 BACKUP_LAST_SUCCESS = Gauge(
-    "backup_last_success_timestamp", "Unix time последнего успешного бэкапа"
+    "backup_last_success_timestamp", "Unix time of the last successful backup"
 )
-REQUESTS_TOTAL = Counter("http_requests_total", "Всего запросов", ["method", "status"])
+REQUESTS_TOTAL = Counter("http_requests_total", "Total requests", ["method", "status"])
 
 
 def setup_logging(level: str = "INFO") -> None:

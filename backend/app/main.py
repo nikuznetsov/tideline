@@ -29,13 +29,13 @@ from app.db.session import get_session_factory
 async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_logging(settings.log_level)
-    # в продакшене (https) дефолтные секреты недопустимы: сессии подделываемы,
-    # а админ входит по общеизвестному паролю
+    # in production (https) default secrets are unacceptable: sessions could be
+    # forged and the admin would log in with a well-known password
     if settings.app_base_url.startswith("https"):
         if settings.secret_key == "dev-secret-change-me":
-            raise RuntimeError("SECRET_KEY не задан для продакшена")
+            raise RuntimeError("SECRET_KEY is not set for production")
         if settings.admin_password == "admin":
-            raise RuntimeError("ADMIN_PASSWORD не задан для продакшена")
+            raise RuntimeError("ADMIN_PASSWORD is not set for production")
     if settings.sentry_dsn:
         try:
             import sentry_sdk
@@ -48,28 +48,28 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="xOps Tideline", lifespan=lifespan, docs_url=None, redoc_url=None)
+app = FastAPI(title="Tideline", lifespan=lifespan, docs_url=None, redoc_url=None)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestContextMiddleware)
 
-api = FastAPI(title="xOps Tideline API")
+api = FastAPI(title="Tideline API")
 
 
 async def _integrity_error(request: Request, exc: Exception):
-    # последний рубеж: нарушение ограничения БД (гонки на unique и т.п.) —
-    # это конфликт данных, а не сбой сервера
-    return JSONResponse({"detail": "Конфликт данных"}, status_code=409)
+    # last line of defence: a DB constraint violation (races on unique etc.)
+    # is a data conflict, not a server failure
+    return JSONResponse({"detail": "Data conflict"}, status_code=409)
 
 
 app.add_exception_handler(IntegrityError, _integrity_error)
 api.add_exception_handler(IntegrityError, _integrity_error)
-# без пространства: аутентификация, список пространств, вступление, публичные срезы
+# workspace-less: authentication, workspace list, joining, public read-only views
 api.include_router(auth.router)
 api.include_router(workspaces.router)
 api.include_router(share.public_router)
-api.include_router(admin.router)  # /admin/backups — глобальный
+api.include_router(admin.router)  # /admin/backups — global
 
-# доменные маршруты — только внутри пространства: /api/v1/w/{workspace_slug}/...
+# domain routes live inside a workspace only: /api/v1/w/{workspace_slug}/...
 workspace_scoped = APIRouter(prefix="/w/{workspace_slug}")
 for router_module in (timeline, allocations, capacity, members, projects, weeks, export, calendar):
     workspace_scoped.include_router(router_module.router)
@@ -107,7 +107,7 @@ async def metrics(request: Request):
         auth = request.headers.get("authorization", "")
         provided = auth[7:] if auth.startswith("Bearer ") else request.query_params.get("token", "")
         if not (provided and secrets.compare_digest(provided, token)):
-            return JSONResponse({"detail": "Не авторизован"}, status_code=401)
+            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
 
     try:
         async with get_session_factory()() as db:
@@ -127,7 +127,7 @@ async def metrics(request: Request):
                     last_backup = last_backup.replace(tzinfo=tz.utc)
                 BACKUP_LAST_SUCCESS.set(last_backup.timestamp())
     except Exception:
-        pass  # метрики не должны падать из-за БД
+        pass  # metrics must not fail because of the DB
     return metrics_response()
 
 
@@ -146,7 +146,7 @@ if static_dir.exists():
         index = static_root / "index.html"
         if full_path:
             candidate = (static_root / full_path).resolve()
-            # не выпускаем за пределы static: %2e%2e и прочие обходы
+            # never escape the static dir: %2e%2e and other traversal tricks
             if candidate.is_relative_to(static_root) and candidate.is_file():
                 return FileResponse(candidate)
         return FileResponse(index)

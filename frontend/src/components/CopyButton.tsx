@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-/** Кнопка «Скопировать» с индикацией успеха на пару секунд. */
+/** “Copy” button that shows success for a couple of seconds. */
 export function CopyButton({ text, className }: { text: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -17,7 +17,7 @@ export function CopyButton({ text, className }: { text: string; className?: stri
       }}
       className={className}
     >
-      {copied ? "Скопировано ✓" : "Скопировать"}
+      {copied ? "Copied ✓" : "Copy"}
     </button>
   );
 }

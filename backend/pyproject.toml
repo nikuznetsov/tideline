@@ -1,7 +1,7 @@
 [project]
 name = "tideline-backend"
 version = "0.1.0"
-description = "xOps Tideline — team allocation planning service"
+description = "Tideline — team load planning on a rolling two-week timeline"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

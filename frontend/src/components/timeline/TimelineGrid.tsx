@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { useWorkspaceMaybe } from "../../workspace";
 import type { TimelineProject, TimelineResponse } from "../../api/types";
-import { dayLabel, isWeekendISO } from "../../lib/dates";
+import { dayLabel, isWeekendISO, shortDate } from "../../lib/dates";
 import { fmtLoad, fmtNum } from "../../lib/format";
 import {
   CATEGORY_GLYPH,
@@ -41,7 +41,7 @@ interface Props {
   setCells: (cells: CellChange[]) => void;
   undo: () => void;
   redo: () => void;
-  /** дополнительные (ещё пустые) строки проекта у сотрудника */
+  /** extra (still empty) project rows of a team member */
   extraRows: Record<string, string[]>;
   onAddRow: (memberId: string, projectId: string) => void;
   onRemoveRow?: (memberId: string, projectId: string) => void;
@@ -59,7 +59,7 @@ export function TimelineGrid({
   readOnly = false,
 }: Props) {
   const wsCtx = useWorkspaceMaybe();
-  // выходные не показываем: планирование идёт только по будням
+  // weekends are hidden: planning happens on weekdays only
   const visibleTotals = useMemo(
     () => data.day_totals.filter((t) => !isWeekendISO(t.day)),
     [data.day_totals],
@@ -94,7 +94,7 @@ export function TimelineGrid({
     return map;
   }, [data.allocations]);
 
-  /** редактируемые строки в порядке отображения — для клавиатурной навигации */
+  /** editable rows in display order — for keyboard navigation */
   const rows: GridRow[] = useMemo(() => {
     const result: GridRow[] = [];
     for (const tm of data.members) {
@@ -193,7 +193,7 @@ export function TimelineGrid({
     [focus, selection, isEditable, rows, days, setCells],
   );
 
-  /** убрать строку проекта: пустую — сразу, с загрузкой — через подтверждение */
+  /** remove a project row: an empty one right away, one with load after confirmation */
   const requestRemoveRow = useCallback(
     (row: GridRow) => {
       const allocatedDays = days.filter((d) =>
@@ -230,7 +230,7 @@ export function TimelineGrid({
     setAnchor(null);
   }, [removeRow, setCells, onRemoveRow]);
 
-  /** выбор в пикере: применить к выделению, фокус вниз — как раньше у редактора */
+  /** picker choice: apply to the selection, move focus down — as the editor used to */
   const commitPicker = useCallback(
     (category: LoadCategory | null) => {
       if (!picker) return;
@@ -245,7 +245,7 @@ export function TimelineGrid({
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (readOnly) return;
-      if (picker) return; // ввод обрабатывает пикер
+      if (picker) return; // the picker handles input
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -303,7 +303,7 @@ export function TimelineGrid({
     [picker, focus, anchor, rows, days, undo, redo, applyToSelection, isEditable, readOnly],
   );
 
-  // drag-fill: применить значение исходной ячейки на диапазон
+  // drag-fill: apply the source cell value to the range
   useEffect(() => {
     const onUp = () => {
       dragging.current = false;
@@ -336,7 +336,7 @@ export function TimelineGrid({
     [data.weeks],
   );
   const currentWeek = data.weeks.find((w) => w.is_current);
-  /** последний день текущей недели, попавший в окно, — граница «линии прилива» */
+  /** last day of the current week inside the window — the “tide line” boundary */
   const tidelineDay = useMemo(() => {
     if (!currentWeek) return null;
     const weekEnd = addDays(currentWeek.week_start, 7);
@@ -359,9 +359,9 @@ export function TimelineGrid({
         className="outline-none"
         style={needScroll ? { minWidth: `${240 + days.length * 44 + 110}px` } : undefined}
         role="grid"
-        aria-label="Таймлайн загрузки"
+        aria-label="Load timeline"
       >
-        {/* ---- заголовки недель ---- */}
+        {/* ---- week headers ---- */}
         <div className="grid" style={{ gridTemplateColumns: gridCols }}>
           <div className={needScroll ? "sticky left-0 z-10 bg-page" : ""} />
           {data.weeks.map((w) => {
@@ -375,7 +375,7 @@ export function TimelineGrid({
                 className={`flex items-center gap-2 px-2 py-1 ${w.week_start !== data.weeks[0].week_start ? "week-gap" : "border-l-2 border-line"}`}
               >
                 <span className="text-xs font-medium">
-                  {dayLabel(w.week_start).slice(3)}.{w.week_start.slice(5, 7)}
+                  {shortDate(w.week_start)}
                 </span>
                 <span
                   className={`rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wide ${
@@ -385,14 +385,14 @@ export function TimelineGrid({
                   }`}
                   title={
                     w.is_past || w.is_current
-                      ? "Факт: текущая или прошедшая неделя"
-                      : "План: будущая неделя, надёжность ниже"
+                      ? "Actual: current or past week"
+                      : "Plan: future week, less reliable"
                   }
                 >
-                  {w.is_past || w.is_current ? "факт" : "план"}
+                  {w.is_past || w.is_current ? "actual" : "plan"}
                 </span>
                 {w.is_closed && (
-                  <span className="text-[10px] text-muted" title="Неделя закрыта">
+                  <span className="text-[10px] text-muted" title="Week closed">
                     🔒
                   </span>
                 )}
@@ -402,7 +402,7 @@ export function TimelineGrid({
           <div />
         </div>
 
-        {/* ---- заголовки дней ---- */}
+        {/* ---- day headers ---- */}
         <div
           className="grid border-b border-line text-center"
           style={{ gridTemplateColumns: gridCols }}
@@ -412,7 +412,7 @@ export function TimelineGrid({
               needScroll ? "sticky left-0 z-10 bg-page" : ""
             }`}
           >
-            Команда
+            Team
           </div>
           {days.map((d) => {
             const off =
@@ -431,17 +431,17 @@ export function TimelineGrid({
             );
           })}
           <div className="py-1 pr-2 text-right text-[11px] uppercase tracking-wide text-muted">
-            Занято/своб.
+            Busy/free
           </div>
         </div>
 
-        {/* ---- блоки сотрудников ---- */}
+        {/* ---- team member blocks ---- */}
         {data.members.map((tm) => {
           const isOpen = !!expanded[tm.member.id];
           const memberRows = rows.filter((r) => r.memberId === tm.member.id);
           return (
             <Fragment key={tm.member.id}>
-              {/* сводная строка */}
+              {/* summary row */}
               <div
                 className="grid items-stretch border-b border-line bg-surface"
                 style={{ gridTemplateColumns: gridCols }}
@@ -453,7 +453,7 @@ export function TimelineGrid({
                   className={`flex items-center gap-1.5 px-2 py-1 text-left hover:bg-page ${
                     needScroll ? "sticky left-0 z-10 bg-surface" : ""
                   }`}
-                  title={isOpen ? "Свернуть" : "Развернуть по проектам"}
+                  title={isOpen ? "Collapse" : "Expand by project"}
                 >
                   <span className="text-[10px] text-muted">{isOpen ? "▾" : "▸"}</span>
                   <span className="truncate text-sm font-medium">{tm.member.name}</span>
@@ -484,15 +484,15 @@ export function TimelineGrid({
                       }
                       title={
                         d.is_absent
-                          ? "Отсутствие"
+                          ? "Absence"
                           : off
-                            ? "Нерабочий день"
-                            : `Загрузка ${fmtNum(load)} из ${fmtNum(cap)}`
+                            ? "Non-working day"
+                            : `Load ${fmtNum(load)} of ${fmtNum(cap)}`
                       }
                     >
                       {!off && !d.is_absent && (load > 0 ? fmtLoad(load) : "")}
                       {!off && cap > 0 && load > cap && (
-                        <span className="absolute right-0.5 top-0 text-[9px]" aria-label="перегруз">
+                        <span className="absolute right-0.5 top-0 text-[9px]" aria-label="overload">
                           ⚠
                         </span>
                       )}
@@ -506,7 +506,7 @@ export function TimelineGrid({
                 </div>
               </div>
 
-              {/* развёрнутые строки по проектам */}
+              {/* expanded per-project rows */}
               {isOpen &&
                 memberRows.map((row) => {
                   const r = rowIndex.get(`${row.memberId}|${row.projectId}`)!;
@@ -528,8 +528,8 @@ export function TimelineGrid({
                         ) : (
                           <Link
                             to={wsCtx!.wsPath(`/projects/${row.projectId}`)}
-                            title={`${projectsById.get(row.projectId)?.name ?? ""} — открыть карточку`}
-                            className="truncate hover:text-mts hover:underline"
+                            title={`${projectsById.get(row.projectId)?.name ?? ""} — open project card`}
+                            className="truncate hover:text-accent hover:underline"
                             onMouseDown={(e) => e.stopPropagation()}
                           >
                             {row.projectCode}
@@ -539,9 +539,9 @@ export function TimelineGrid({
                           <button
                             onMouseDown={(e) => e.stopPropagation()}
                             onClick={() => requestRemoveRow(row)}
-                            title="Убрать проект у сотрудника (снять загрузку в окне)"
-                            aria-label={`Убрать строку ${row.projectCode}`}
-                            className="ml-auto hidden rounded px-1 text-muted hover:bg-page hover:text-mts group-hover/row:block"
+                            title="Remove project from team member (clears load in the window)"
+                            aria-label={`Remove row ${row.projectCode}`}
+                            className="ml-auto hidden rounded px-1 text-muted hover:bg-page hover:text-accent group-hover/row:block"
                           >
                             ✕
                           </button>
@@ -579,9 +579,9 @@ export function TimelineGrid({
                             style={absent ? { backgroundImage: "var(--cell-absent)" } : undefined}
                             title={
                               absent
-                                ? "Отсутствие (отпуск/болезнь): ёмкость дня 0, планирование недоступно. Чтобы поставить загрузку, сначала снимите отсутствие."
+                                ? "Absence (vacation/sick leave): day capacity is 0, planning unavailable. To set load, remove the absence first."
                                 : off
-                                  ? "Нерабочий день"
+                                  ? "Non-working day"
                                   : category
                                     ? CATEGORY_LABEL[category]
                                     : undefined
@@ -612,14 +612,14 @@ export function TimelineGrid({
                             ) : (
                               ""
                             )}
-                            {/* маркер растяжки как в Excel: виден на фокусе
-                                и при наведении на заполненную ячейку */}
+                            {/* Excel-style fill handle: visible on focus
+                                and on hover over a filled cell */}
                             {!readOnly && !off && !absent && (isFocus || category) && (
                               <span
                                 className={`absolute -bottom-0.5 -right-0.5 z-10 h-2.5 w-2.5 cursor-ew-resize rounded-sm border border-surface bg-[var(--accent)] ${
                                   isFocus ? "" : "opacity-0 group-hover:opacity-100"
                                 }`}
-                                title="Потянуть, чтобы растянуть значение по дням"
+                                title="Drag to fill the value across days"
                                 onMouseDown={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -649,7 +649,7 @@ export function TimelineGrid({
                   );
                 })}
 
-              {/* строка добавления проекта */}
+              {/* add-project row */}
               {isOpen && !readOnly && (
                 <AddProjectRow
                   gridCols={gridCols}
@@ -665,7 +665,7 @@ export function TimelineGrid({
           );
         })}
 
-        {/* ---- итоговые строки ---- */}
+        {/* ---- total rows ---- */}
         <div className="sticky bottom-0 z-20 border-t-2 border-line bg-surface">
           <div className="grid" style={{ gridTemplateColumns: gridCols }}>
             <div
@@ -673,7 +673,7 @@ export function TimelineGrid({
                 needScroll ? "sticky left-0 bg-surface" : ""
               }`}
             >
-              Свободно, дн.
+              Free, days
             </div>
             {visibleTotals.map((t) => (
               <div
@@ -692,7 +692,7 @@ export function TimelineGrid({
               </div>
             ))}
             <div className="py-1 pr-2 text-right text-xs font-nums text-muted">
-              за окно
+              in window
             </div>
           </div>
           <div
@@ -704,7 +704,7 @@ export function TimelineGrid({
                 needScroll ? "sticky left-0 bg-surface" : ""
               }`}
             >
-              Итог недели · утилизация {fmtNum(data.utilization_pct, 1)}%
+              Week total · utilization {fmtNum(data.utilization_pct, 1)}%
             </div>
             {data.weeks.map((w) => {
               const count = days.filter(
@@ -716,7 +716,7 @@ export function TimelineGrid({
                   style={{ gridColumn: `span ${count}` }}
                   className={`py-1 text-center text-xs font-nums ${w.week_start !== data.weeks[0].week_start ? "week-gap" : "border-l-2 border-line"}`}
                 >
-                  свободно <span className="font-medium">{fmtNum(w.free_total)}</span>
+                  <span className="font-medium">{fmtNum(w.free_total)}</span> free
                 </div>
               );
             })}
@@ -726,16 +726,16 @@ export function TimelineGrid({
       </div>
       {removeRow && (
         <ConfirmDialog
-          title="Убрать проект у сотрудника"
+          title="Remove project from team member"
           message={
             <>
-              Строка <b>{removeRow.code}</b> у сотрудника{" "}
-              {memberById.get(removeRow.memberId)?.member.name ?? ""}: загрузка за{" "}
-              {removeRow.allocatedDays.length} раб. дн. в видимом окне будет снята.
-              Действие можно отменить (Ctrl+Z).
+              Row <b>{removeRow.code}</b> for{" "}
+              {memberById.get(removeRow.memberId)?.member.name ?? ""}: load on{" "}
+              {removeRow.allocatedDays.length} working day(s) in the visible window will be cleared.
+              You can undo this (Ctrl+Z).
             </>
           }
-          confirmLabel="Снять и убрать"
+          confirmLabel="Clear and remove"
           onConfirm={confirmRemoveRow}
           onClose={() => setRemoveRow(null)}
         />
@@ -781,9 +781,9 @@ function AddProjectRow({
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
-          placeholder="+ проект…"
+          placeholder="+ project…"
           className="w-full bg-transparent text-xs text-muted placeholder-muted/70 outline-none"
-          aria-label="Добавить проект сотруднику"
+          aria-label="Add project to team member"
         />
         {open && filtered.length > 0 && (
           <div className="absolute left-6 top-6 z-30 max-h-48 w-64 overflow-auto rounded border border-line bg-surface shadow-lg">
@@ -810,8 +810,8 @@ function AddProjectRow({
   );
 }
 
-/** Поповер выбора категории у ячейки: Enter/двойной клик открывают,
- * ↑/↓ + Enter или клик выбирают, 1/2/5/7 — быстрый выбор, 0 — очистить, Esc — закрыть. */
+/** Category picker popover for a cell: Enter/double-click opens it,
+ * ↑/↓ + Enter or click selects, 1/2/5/7 quick-pick, 0 clears, Esc closes. */
 function CategoryPicker({
   current,
   onPick,
@@ -834,7 +834,7 @@ function CategoryPicker({
   return (
     <div
       role="listbox"
-      aria-label="Категория загрузки"
+      aria-label="Load category"
       tabIndex={0}
       ref={(el) => el?.focus()}
       onKeyDown={(e) => {
@@ -891,7 +891,7 @@ function CategoryPicker({
               <span className="inline-flex h-4 w-5 items-center justify-center" aria-hidden>
                 ✕
               </span>
-              <span className="flex-1">Очистить</span>
+              <span className="flex-1">Clear</span>
               <kbd className="text-[10px] text-muted">0</kbd>
             </>
           )}

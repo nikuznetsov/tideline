@@ -7,17 +7,18 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+backend/tideline_backend.egg-info/
 
 node_modules/
 frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
 backend/static/
 
 .DS_Store
-
-# дизайн-референсы: исходные архивы шрифтов и брендбук не нужны для сборки
-mts_design/
-MTS_Guide_02_removed.pdf
 .claude/settings.local.json*
 
-# PDF-деливери для менеджеров (содержит пароль) — не в репозиторий
-xOps-Tideline-для-менеджеров.pdf
+# local design references / private deliverables (not part of the repo)
+design-refs/
+*.private.pdf
+projects_desc/

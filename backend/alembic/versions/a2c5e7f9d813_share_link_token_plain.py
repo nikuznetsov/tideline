@@ -1,4 +1,4 @@
-"""share_link.token открытым текстом — повторное копирование read-only ссылок
+"""share_link.token in plain text — re-copying read-only links
 
 Revision ID: a2c5e7f9d813
 Revises: f1a3d8e6b492
@@ -17,7 +17,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # у старых ссылок токен не восстановить из хэша — останется NULL
+    # old links' tokens cannot be recovered from the hash — they stay NULL
     op.add_column("share_link", sa.Column("token", sa.Text(), nullable=True))
 
 

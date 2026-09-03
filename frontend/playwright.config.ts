@@ -6,7 +6,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: "http://localhost:8177",
-    locale: "ru-RU",
+    locale: "en-GB",
   },
   webServer: {
     command: "bash e2e/serve.sh",

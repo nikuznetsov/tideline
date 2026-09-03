@@ -1,30 +1,30 @@
 const GROUPS: { title: string; keys: [string, string][] }[] = [
   {
-    title: "Ввод в ячейке",
+    title: "Cell input",
     keys: [
-      ["1", "Весь день"],
-      ["5", "Наполовину"],
-      ["7", "Почти весь день"],
-      ["2", "Фоново"],
-      ["0 / Delete", "Очистить"],
-      ["Enter / двойной клик", "Выбор категории"],
+      ["1", "Full day"],
+      ["5", "Half day"],
+      ["7", "Most of the day"],
+      ["2", "Background"],
+      ["0 / Delete", "Clear"],
+      ["Enter / double-click", "Pick a category"],
     ],
   },
   {
-    title: "Навигация",
+    title: "Navigation",
     keys: [
-      ["← ↑ → ↓", "Между ячейками"],
-      ["Tab", "Вправо"],
-      ["Shift + стрелки", "Выделить диапазон"],
-      ["Esc", "Сбросить выделение"],
+      ["← ↑ → ↓", "Move between cells"],
+      ["Tab", "Move right"],
+      ["Shift + arrows", "Select a range"],
+      ["Esc", "Clear selection"],
     ],
   },
   {
-    title: "Действия",
+    title: "Actions",
     keys: [
-      ["Cmd/Ctrl + Z", "Отменить"],
-      ["Cmd/Ctrl + Shift + Z", "Вернуть"],
-      ["?", "Эта справка"],
+      ["Cmd/Ctrl + Z", "Undo"],
+      ["Cmd/Ctrl + Shift + Z", "Redo"],
+      ["?", "This help"],
     ],
   },
 ];
@@ -35,14 +35,14 @@ export function HotkeysHelp({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}
       role="dialog"
-      aria-label="Горячие клавиши"
+      aria-label="Keyboard shortcuts"
     >
       <div
         className="w-[420px] rounded-lg border border-line bg-surface p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-wide text-sm font-bold">Горячие клавиши</h2>
+          <h2 className="font-display text-sm font-bold">Keyboard shortcuts</h2>
           <button onClick={onClose} className="text-muted hover:text-ink">
             ✕
           </button>

@@ -5,11 +5,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        wide: ["MTS Wide", "system-ui", "sans-serif"],
-        compact: ["MTS Compact", "system-ui", "sans-serif"],
+        display: ["Space Grotesk", "Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
       },
       colors: {
-        mts: "#E30611",
+        accent: "var(--accent)",
+        "accent-ink": "var(--accent-ink)",
         ink: "var(--ink)",
         muted: "var(--muted)",
         line: "var(--line)",

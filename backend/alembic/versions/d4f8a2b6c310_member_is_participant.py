@@ -1,4 +1,4 @@
-"""команда = участники: member.user_id → app_user
+"""team = participants: member.user_id → app_user
 
 Revision ID: d4f8a2b6c310
 Revises: c9d1e5f7a201

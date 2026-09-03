@@ -1,6 +1,6 @@
-# Прод на VM (MWS Cloud): app + Postgres 18 + Caddy (TLS).
-# Аналог railway.toml: migrate повторяет preDeployCommand, app — startCommand.
-# Запуск: см. docs/DEPLOY-MWS.md и ops/mws/deploy.sh
+# Production on a VM: app + Postgres 18 + Caddy (TLS).
+# Mirrors railway.toml: migrate replays preDeployCommand, app replays startCommand.
+# Usage: see docs/DEPLOY-DOCKER.md and ops/compose/deploy.sh
 
 name: tideline
 
@@ -11,10 +11,10 @@ services:
     environment:
       POSTGRES_DB: tideline
       POSTGRES_USER: tideline
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте в .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env}
     volumes:
-      # в образе postgres:18 том — /var/lib/postgresql (PGDATA=…/18/docker),
-      # маунт на …/data оставил бы данные в анонимном томе
+      # in the postgres:18 image the volume is /var/lib/postgresql (PGDATA=…/18/docker);
+      # mounting …/data would leave the data in an anonymous volume
       - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tideline -d tideline"]
@@ -23,8 +23,8 @@ services:
       retries: 24
       start_period: 30s
 
-  # Одноразовый шаг перед стартом: pre-deploy бэкап -> миграции -> (опц.) seed.
-  # Жёсткая цепочка через && — как на Railway: без бэкапа миграции не едут.
+  # One-shot step before start: pre-deploy backup -> migrations -> (optional) seed.
+  # A strict && chain, as on Railway: no backup, no migrations.
   migrate:
     build:
       context: ../..
@@ -58,7 +58,7 @@ services:
       DATABASE_URL: postgresql://tideline:${POSTGRES_PASSWORD}@db:5432/tideline
       PORT: "8000"
     volumes:
-      # локальные бэкапы (BACKUP_DIR=/backups); cron делает docker compose run app
+      # local backups (BACKUP_DIR=/backups); cron runs docker compose run app
       - /var/backups/tideline:/backups
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
@@ -76,7 +76,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      DOMAIN: ${DOMAIN:?задайте в .env}
+      DOMAIN: ${DOMAIN:?set it in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

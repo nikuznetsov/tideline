@@ -32,7 +32,7 @@ def test_weights_ascending_and_check_consistent():
 
 async def test_garbage_category_rejected_422(auth_client, team, monday):
     resp = await auth_client.post(
-        "/api/v1/w/xops/allocations",
+        "/api/v1/w/acme/allocations",
         json={
             "member_id": str(team["members"][0].id),
             "project_id": str(team["project"].id),
@@ -44,7 +44,7 @@ async def test_garbage_category_rejected_422(auth_client, team, monday):
 
 
 async def test_project_load_sums_category_weights(auth_client, db, team, monday):
-    """CASE-сумма в /projects/{id}/load: full + background = 1.25 человеко-дня."""
+    """CASE sum in /projects/{id}/load: full + background = 1.25 person-days."""
     member = team["members"][0]
     project = team["project"]
     for day, cat in ((monday, "full"), (monday + timedelta(days=1), "background")):
@@ -60,7 +60,7 @@ async def test_project_load_sums_category_weights(auth_client, db, team, monday)
     await db.commit()
 
     resp = await auth_client.get(
-        f"/api/v1/w/xops/projects/{project.id}/load",
+        f"/api/v1/w/acme/projects/{project.id}/load",
         params={"from": monday.isoformat(), "to": (monday + timedelta(days=4)).isoformat()},
     )
     assert resp.status_code == 200, resp.text
@@ -84,7 +84,7 @@ async def test_export_cells_use_category_marks(auth_client, db, team, monday):
     await db.commit()
 
     resp = await auth_client.get(
-        "/api/v1/w/xops/export/timeline.csv",
+        "/api/v1/w/acme/export/timeline.csv",
         params={"from": monday.isoformat(), "to": (monday + timedelta(days=4)).isoformat()},
     )
     assert resp.status_code == 200

@@ -52,10 +52,10 @@ async def test_accuracy_report(db, workspace, team, monday):
     assert Decimal(week["plan_total"]) == Decimal("1.0")
     assert Decimal(week["fact_total"]) == Decimal("1.5")
     assert Decimal(week["abs_error"]) == Decimal("1.5")  # |0.5-1| + |1-0|
-    # у обоих сотрудников есть ошибка, сортировка по убыванию
+    # both members have an error, sorted descending
     errors = [Decimal(r["mean_abs_error"]) for r in report["members"]]
     assert errors == sorted(errors, reverse=True)
-    # проект стабильно съедает больше плана: fact 1.5 vs plan 1.0 за неделю
+    # the project consistently consumes more than planned: fact 1.5 vs plan 1.0 per week
     assert report["overrun_projects"][0]["code"] == "TEST"
     assert Decimal(report["overrun_projects"][0]["total_overrun"]) == Decimal("1.0")
 

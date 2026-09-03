@@ -1,4 +1,4 @@
-"""Экспорт таймлайна и реестра проектов в XLSX/CSV — формат привычной таблицы."""
+"""Export of the timeline and project registry to XLSX/CSV — a familiar spreadsheet format."""
 
 import csv
 import io
@@ -17,10 +17,10 @@ from app.domain.calendar import date_range, is_weekend
 from app.domain.capacity import load_calendar_context
 from app.domain.categories import CATEGORY_WEIGHTS, XLSX_LETTER
 
-DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-# защита от formula injection: значение, начинающееся с =,+,-,@ или управляющего
-# символа, Excel/LibreOffice трактует как формулу. Экранируем ведущим апострофом.
+# formula injection guard: a value starting with =,+,-,@ or a control character
+# is treated as a formula by Excel/LibreOffice. Escape with a leading apostrophe.
 _FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r", "\n")
 
 
@@ -52,13 +52,13 @@ async def _timeline_rows(
         .scalars()
         .all()
     }
-    # выходные не экспортируются — как и на таймлайне; праздники остаются
+    # weekends are not exported — same as on the timeline; holidays stay
     days = [d for d in date_range(date_from, date_to) if not is_weekend(d)]
     alloc_map: dict[tuple, list] = {}
     for a in allocations:
         alloc_map.setdefault((a.member_id, a.day), []).append(a)
 
-    # перегруз: сумма весов категорий за день у сотрудника больше его ёмкости
+    # overload: the member's category weights for a day sum to more than their capacity
     day_sums: dict[tuple[uuid.UUID, date], Decimal] = {}
     for a in allocations:
         key = (a.member_id, a.day)
@@ -107,9 +107,9 @@ async def export_timeline_xlsx(
     )
     wb = Workbook()
     sh = wb.active
-    sh.title = "Таймлайн"
-    sh.cell(1, 1, "Сотрудник").font = HEADER_FONT
-    sh.cell(1, 2, "Проект").font = HEADER_FONT
+    sh.title = "Timeline"
+    sh.cell(1, 1, "Team member").font = HEADER_FONT
+    sh.cell(1, 2, "Project").font = HEADER_FONT
     sh.cell(1, 1).fill = HEADER_FILL
     sh.cell(1, 2).fill = HEADER_FILL
     for i, d in enumerate(days, start=3):
@@ -133,8 +133,8 @@ async def export_timeline_xlsx(
             cell.alignment = Alignment(horizontal="center")
 
     legend = (
-        "Ф — фоново (0,25) · Н — наполовину (0,5) · "
-        "П — почти весь день (0,75) · В — весь день (1) · красным — перегруз дня"
+        "B — background (0.25) · H — half day (0.5) · "
+        "M — most of the day (0.75) · F — full day (1) · red — day overload"
     )
     sh.cell(len(rows) + 3, 1, legend)
 
@@ -151,7 +151,7 @@ async def export_timeline_csv(
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(
-        ["Сотрудник", "Проект"] + [d.isoformat() for d in days]
+        ["Team member", "Project"] + [d.isoformat() for d in days]
     )
     for row in rows:
         writer.writerow(
@@ -163,10 +163,10 @@ async def export_timeline_csv(
 
 HEALTH_LABEL = {"green": "🟢", "amber": "🟡", "red": "🔴"}
 LIFECYCLE_LABEL = {
-    "active": "Активен",
-    "support": "Поддержка",
-    "paused": "Приостановлен",
-    "finished": "Завершён",
+    "active": "Active",
+    "support": "Support",
+    "paused": "Paused",
+    "finished": "Finished",
 }
 
 
@@ -184,8 +184,8 @@ async def export_projects_xlsx(db: AsyncSession, workspace_id: uuid.UUID) -> byt
     )
     wb = Workbook()
     sh = wb.active
-    sh.title = "Проекты"
-    headers = ["Код", "Название", "Статус", "Светофор", "Апдейт недели"]
+    sh.title = "Projects"
+    headers = ["Code", "Name", "Status", "Health", "Weekly update"]
     widths = [10, 36, 14, 10, 56]
     for i, (h, w) in enumerate(zip(headers, widths), start=1):
         cell = sh.cell(1, i, h)

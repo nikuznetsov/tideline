@@ -1,4 +1,4 @@
-"""Загрузка категориями: allocation.load -> allocation.category
+"""Load as categories: allocation.load -> allocation.category
 
 Revision ID: c7f2d9b4e611
 Revises: b3e6a1c8f542
@@ -20,10 +20,10 @@ LOAD_CHECK = "load > 0 AND load <= 1"
 
 
 def _allocation_table(*, load: str | None, category: str | None) -> sa.Table:
-    """Явное описание allocation для SQLite copy_from: CHECK-и не рефлектируются.
+    """Explicit description of allocation for SQLite copy_from: CHECKs are not reflected.
 
-    load/category: None — колонки нет, "nullable" — есть без чека,
-    "checked" — NOT NULL со своим CHECK-констрейнтом.
+    load/category: None — no column, "nullable" — present without a check,
+    "checked" — NOT NULL with its own CHECK constraint.
     """
     cols: list[sa.schema.SchemaItem] = [
         sa.Column("id", sa.Uuid(), primary_key=True),
@@ -67,7 +67,7 @@ def _allocation_table(*, load: str | None, category: str | None) -> sa.Table:
 
 
 def _ensure_indexes() -> None:
-    """SQLite-пересоздание таблицы теряет индексы — вернуть."""
+    """SQLite table recreation loses the indexes — restore them."""
     insp = sa.inspect(op.get_bind())
     names = {ix["name"] for ix in insp.get_indexes("allocation")}
     for name, cols in [
@@ -80,7 +80,7 @@ def _ensure_indexes() -> None:
 
 
 def _drop_checks_mentioning(bind: sa.Connection, needle: str) -> None:
-    """Postgres: чек может называться иначе или отсутствовать вовсе."""
+    """Postgres: the check may be named differently or be missing entirely."""
     for ck in sa.inspect(bind).get_check_constraints("allocation"):
         if needle in (ck.get("sqltext") or ""):
             op.drop_constraint(ck["name"], "allocation", type_="check")
@@ -116,7 +116,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # с потерей точности: категория -> её вес
+    # lossy: category -> its weight
     bind = op.get_bind()
     op.add_column(
         "allocation", sa.Column("load", sa.Numeric(precision=3, scale=2), nullable=True)

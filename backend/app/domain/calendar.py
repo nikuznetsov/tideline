@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 
 def week_start_of(d: date, week_starts_on: int = 1) -> date:
-    """Понедельник (или иной старт) недели, в которую попадает дата."""
+    """Monday (or another configured start) of the week containing the date."""
     offset = (d.weekday() - (week_starts_on - 1)) % 7
     return d - timedelta(days=offset)
 

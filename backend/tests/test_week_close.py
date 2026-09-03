@@ -47,12 +47,12 @@ async def test_close_week_fixes_next_week_plan(db, workspace, team, monday):
     plan = await get_snapshot(db, workspace.id, next_monday, "plan")
     assert plan is not None
     assert plan.payload["allocations"][0]["category"] == "half"
-    # derived-вес пишется рядом — совместимость diff/accuracy со старыми снимками
+    # the derived weight is written alongside — keeps diff/accuracy compatible with old snapshots
     assert plan.payload["allocations"][0]["load"] == "0.5"
 
 
 async def test_close_week_diff_vs_plan(db, workspace, team, monday):
-    # план: 1.0 в понедельник; факт: 0.5
+    # plan: 1.0 on Monday; fact: 0.5
     plan_payload = {
         "week_start": monday.isoformat(),
         "allocations": [
@@ -84,7 +84,7 @@ async def test_undo_close_week(db, workspace, team, monday):
     await close_week(db, workspace.id, monday)
     await undo_close_week(db, workspace.id, monday)
     assert await get_snapshot(db, workspace.id, monday, "fact") is None
-    # и можно закрыть снова
+    # and it can be closed again
     await close_week(db, workspace.id, monday)
 
 

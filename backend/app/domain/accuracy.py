@@ -1,4 +1,4 @@
-"""Экран «Точность планирования»: сравнение plan/fact снимков за N недель."""
+"""The \"Planning accuracy\" screen: comparing plan/fact snapshots over N weeks."""
 
 import uuid
 from decimal import Decimal
@@ -86,7 +86,7 @@ async def accuracy_report(
                 "abs_error": str(abs_err),
             }
         )
-        # ошибка по сотрудникам
+        # error per team member
         per_member_keys: dict[str, set] = {}
         for m_id, day in keys:
             per_member_keys.setdefault(m_id, set()).add(day)
@@ -99,15 +99,15 @@ async def accuracy_report(
                 for d in days
             ]
             member_abs_err.setdefault(m_id, []).extend(errs)
-        # «свободный» ресурс так и не был задействован:
-        # в плане у сотрудника пусто и в факте тоже пусто, при том что неделя рабочая
+        # "free" capacity that never got used:
+        # the member is empty in both plan and fact even though the week is a working one
         planned_members = {m for m, _ in plan_md}
         fact_members = {m for m, _ in fact_md}
         if (set(members) - planned_members) and (
             set(members) - planned_members - fact_members
         ):
             idle_weeks += 1
-        # проекты, съедающие больше плана
+        # projects consuming more than planned
         plan_p, fact_p = to_project_total(plan_s.payload), to_project_total(fact_s.payload)
         for p_id in set(plan_p) | set(fact_p):
             delta = fact_p.get(p_id, Decimal(0)) - plan_p.get(p_id, Decimal(0))
